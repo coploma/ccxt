@@ -28,6 +28,9 @@ export default class bithumb extends bithumbRest {
                     'ws': 'wss://ws-api.{hostname}/websocket/v1',
                 },
             },
+            'streaming': {
+                'keepAlive': 18000,
+            },
             'options': {
                 'tradesLimit': 1000,
             },
@@ -349,9 +352,13 @@ export default class bithumb extends bithumbRest {
     }
     async authenticate(params = {}) {
         this.checkRequiredCredentials();
+        let url = this.implodeParams(this.urls['api']['ws'], {
+            'hostname': this.hostname,
+        });
+        url += '/private';
         const wsOptions = this.safeDict(this.options, 'ws', {});
         const authenticated = this.safeString(wsOptions, 'token');
-        if (authenticated === undefined) {
+        if (this.clients[url] === undefined || authenticated === undefined) {
             const auth = {
                 'access_key': this.apiKey,
                 'nonce': this.uuid(),
@@ -366,12 +373,7 @@ export default class bithumb extends bithumbRest {
             };
             this.options['ws'] = wsOptions;
         }
-        let url = this.implodeParams(this.urls['api']['ws'], {
-            'hostname': this.hostname,
-        });
-        url += '/private';
-        const client = this.client(url);
-        return client;
+        return this.client(url);
     }
     async watchPrivate(symbol, channel, messageHash, params = {}) {
         await this.authenticate();

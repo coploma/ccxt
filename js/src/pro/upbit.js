@@ -352,12 +352,17 @@ export default class upbit extends upbitRest {
     }
     async authenticate(params = {}) {
         this.checkRequiredCredentials();
+        let url = this.implodeParams(this.urls['api']['ws'], {
+            'hostname': this.hostname,
+        });
+        url += '/private';
         const wsOptions = this.safeDict(this.options, 'ws', {});
         const authenticated = this.safeString(wsOptions, 'token');
-        if (authenticated === undefined) {
+        if (this.clients[url] === undefined || authenticated === undefined) {
             const auth = {
                 'access_key': this.apiKey,
                 'nonce': this.uuid(),
+                'timestamp': this.now(),
             };
             const token = jwt(auth, this.encode(this.secret), sha256, false);
             wsOptions['token'] = token;
@@ -368,12 +373,7 @@ export default class upbit extends upbitRest {
             };
             this.options['ws'] = wsOptions;
         }
-        let url = this.implodeParams(this.urls['api']['ws'], {
-            'hostname': this.hostname,
-        });
-        url += '/private';
-        const client = this.client(url);
-        return client;
+        return this.client(url);
     }
     async watchPrivate(symbol, channel, messageHash, params = {}) {
         await this.authenticate();
