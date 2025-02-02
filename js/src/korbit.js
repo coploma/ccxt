@@ -6,7 +6,7 @@
 
 //  ---------------------------------------------------------------------------
 import Exchange from './abstract/korbit.js';
-import { ExchangeError, BadRequest, AuthenticationError, InvalidOrder, InsufficientFunds, OrderNotFound, PermissionDenied, AddressPending, ArgumentsRequired } from './base/errors.js';
+import { ExchangeError, AccountSuspended, BadRequest, AuthenticationError, InvalidOrder, InsufficientFunds, OrderNotFound, PermissionDenied, AddressPending, ArgumentsRequired, BadSymbol, InvalidAddress, DuplicateOrderId } from './base/errors.js';
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha512 } from './static_dependencies/noble-hashes/sha512.js';
@@ -23,7 +23,7 @@ export default class korbit extends Exchange {
             'id': 'korbit',
             'name': 'Korbit',
             'countries': ['KR'],
-            'version': 'v1',
+            'version': 'v2',
             'rateLimit': 1000,
             'pro': true,
             // new metainfo interface
@@ -42,9 +42,10 @@ export default class korbit extends Exchange {
                 'createMarketSellOrderWithCost': false,
                 'createOrder': true,
                 'fetchBalance': true,
-                'fetchCanceledOrders': true,
-                'fetchClosedOrders': true,
-                'fetchDeposit': true,
+                'fetchCanceledOrders': false,
+                'fetchClosedOrders': false,
+                'fetchCurrencies': true,
+                'fetchDeposit': false,
                 'fetchDepositAddress': true,
                 'fetchDepositAddresses': true,
                 'fetchDepositAddressesByNetwork': false,
@@ -63,7 +64,7 @@ export default class korbit extends Exchange {
                 'fetchOpenOrders': true,
                 'fetchOrder': true,
                 'fetchOrderBook': true,
-                'fetchOrderBooks': true,
+                'fetchOrderBooks': false,
                 'fetchOrders': false,
                 'fetchPositionMode': false,
                 'fetchPremiumIndexOHLCV': false,
@@ -71,87 +72,76 @@ export default class korbit extends Exchange {
                 'fetchTickers': true,
                 'fetchTrades': true,
                 'fetchTradingFee': true,
-                'fetchTradingFees': false,
+                'fetchTradingFees': true,
                 'fetchTransactions': false,
-                'fetchWithdrawal': true,
+                'fetchWithdrawal': false,
                 'fetchWithdrawals': true,
                 'transfer': false,
                 'withdraw': true,
             },
             'timeframes': {
-                '1m': 'minutes',
-                '3m': 'minutes',
-                '5m': 'minutes',
-                '10m': 'minutes',
-                '15m': 'minutes',
-                '30m': 'minutes',
-                '1h': 'minutes',
-                '4h': 'minutes',
-                '1d': 'days',
-                '1w': 'weeks',
-                '1M': 'months',
+                '1m': '1',
+                '5m': '5',
+                '15m': '15',
+                '30m': '30',
+                '60m': '60',
+                '240m': '240',
+                '1d': '1D',
+                '1w': '1W',
             },
-            'hostname': 'api.korbit.com',
+            'hostname': 'api.korbit.co.kr',
             'urls': {
                 'logo': 'https://user-images.githubusercontent.com/1294454/49245610-eeaabe00-f423-11e8-9cba-4b0aed794799.jpg',
                 'api': {
                     'public': 'https://{hostname}',
                     'private': 'https://{hostname}',
                 },
-                'www': 'https://korbit.com',
-                'doc': 'https://docs.korbit.com/docs/%EC%9A%94%EC%B2%AD-%EC%88%98-%EC%A0%9C%ED%95%9C',
-                'fees': 'https://korbit.com/service_center/guide',
+                'www': 'https://korbit.co.kr',
+                'doc': 'https://docs.korbit.co.kr/',
+                'fees': 'https://lightning.korbit.co.kr/events/fee-plan/',
             },
             'api': {
                 'public': {
                     'get': {
-                        'market/all': {'cost': 1 / 10, 'api_rate_limit_group': 'market'},
-                        'candles/{timeframe}': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/{timeframe}/{unit}': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/minutes/{unit}': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/minutes/1': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/minutes/3': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/minutes/5': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/minutes/10': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/minutes/15': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/minutes/30': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/minutes/60': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/minutes/240': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/days': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/weeks': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'candles/months': {'cost': 1 / 10, 'api_rate_limit_group': 'candles'},
-                        'trades/ticks': {'cost': 1 / 10, 'api_rate_limit_group': 'trades'},
-                        'ticker': {'cost': 1 / 10, 'api_rate_limit_group': 'ticker'},
-                        'orderbook': {'cost': 1 / 10, 'api_rate_limit_group': 'orderbook'},
+                        'tickers': {'cost': 1 / 50, 'api_rate_limit_group': 'public'},
+                        'orderbook': {'cost': 1 / 50, 'api_rate_limit_group': 'public'},
+                        'trades': {'cost': 1 / 50, 'api_rate_limit_group': 'public'},
+                        'candles': {'cost': 1 / 50, 'api_rate_limit_group': 'public'},
+                        'currencyPairs': {'cost': 1 / 50, 'api_rate_limit_group': 'public'},
+                        'currencies': {'cost': 1 / 50, 'api_rate_limit_group': 'public'},
+                        'time': {'cost': 1 / 50, 'api_rate_limit_group': 'public'},
                     },
                 },
                 'private': {
                     'get': {
-                        'accounts': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'orders/chance': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'order': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'orders': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'orders/closed': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'orders/open': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'orders/uuids': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'withdraws': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'withdraw': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'withdraws/chance': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'deposits': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'deposit': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'deposits/coin_addresses': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'deposits/coin_address': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
+                        'orders': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'openOrders': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'allOrders': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'myTrades': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'balance': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'coin/depositAddresses': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'coin/depositAddress': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'coin/recentDeposits': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'coin/deposit': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'coin/withdrawableAddresses': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'coin/withdrawableAmount': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'coin/recentWithdrawals': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'coin/withdrawal': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'krw/recentDeposits': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'krw/recentWithdrawals': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'tradingFeePolicy': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'currentKeyInfo': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
                     },
                     'post': {
-                        'orders': {'cost': 1 / 8, 'api_rate_limit_group': 'order'},
-                        'withdraws/coin': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'withdraws/krw': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'deposits/generate_coin_address': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
+                        'orders': {'cost': 1 / 30, 'api_rate_limit_group': 'order'},
+                        'coin/depositAddress': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'coin/withdrawal': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
+                        'krw/sendKrwDepositPush': {'cost': 1 / 5, 'api_rate_limit_group': 'krwTransfer'},
+                        'krw/sendKrwWithdrawalPush': {'cost': 1 / 5, 'api_rate_limit_group': 'krwTransfer'},
                     },
                     'delete': {
-                        'order': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
-                        'orders/open': {'cost': 2, 'api_rate_limit_group': 'exchange'},
-                        'orders/uuids': {'cost': 1 / 30, 'api_rate_limit_group': 'exchange'},
+                        'orders': {'cost': 1 / 30, 'api_rate_limit_group': 'orderCancel'},
+                        'coin/withdrawal': {'cost': 1 / 50, 'api_rate_limit_group': 'private'},
                     },
                 },
             },
@@ -159,8 +149,8 @@ export default class korbit extends Exchange {
                 'trading': {
                     'tierBased': false,
                     'percentage': true,
-                    'maker': this.parseNumber('0.0005'),
-                    'taker': this.parseNumber('0.0005'),
+                    'maker': this.parseNumber('0'),
+                    'taker': this.parseNumber('0.2'),
                 },
                 'funding': {
                     'tierBased': false,
@@ -177,269 +167,294 @@ export default class korbit extends Exchange {
                     'side is missing, side does not have a valid value': InvalidOrder,
                 },
                 'broad': {
-                    'thirdparty_agreement_required': PermissionDenied,
-                    'out_of_scope': PermissionDenied,
-                    'order_not_found': OrderNotFound,
-                    'insufficient_funds': InsufficientFunds,
-                    'invalid_access_key': AuthenticationError,
-                    'jwt_verification': AuthenticationError,
-                    'create_ask_error': ExchangeError,
-                    'create_bid_error': ExchangeError,
-                    'volume_too_large': InvalidOrder,
-                    'invalid_funds': InvalidOrder,
+                    'DUPLICATE_CLIENT_ORDER_ID': DuplicateOrderId,
+                    'INVALID_CURRENCY_PAIR': InvalidOrder,
+                    'INVALID_USER_STATUS': AccountSuspended,
+                    'BAD_REQUEST': BadRequest,
+                    'NO_BALANCE': InsufficientFunds,
+                    'ONLY_SELL_LIMIT_ORDERS_ALLOWED': BadRequest,
+                    'ORDER_VALUE_TOO_LARGE': InvalidOrder,
+                    'ORDER_VALUE_TOO_SMALL': InvalidOrder,
+                    'PRICE_OVER_UPPER_BOUND': InvalidOrder,
+                    'PRICE_UNDER_LOWER_BOUND': InvalidOrder,
+                    'PRICE_TICK_SIZE_INVALID': InvalidOrder,
+                    'TOO_MANY_OPEN_ORDERS': ExchangeError,
+                    'ORDER_NOT_FOUND': OrderNotFound,
+                    'ORDER_ALREADY_CANCELED': OrderNotFound,
+                    'ORDER_ALREADY_FILLED': OrderNotFound,
+                    'ORDER_ALREADY_EXPIRED': OrderNotFound,
+                    'TRY_AGAIN': OrderNotFound,
+                    'INVALID_CURRENCY': BadSymbol,
+                    'WITHDRAWAL_SUSPENDED': InvalidAddress,
+                    'UNREGISTERED_WITHDRAWAL_ADDRESS': InvalidAddress,
+                    'FORBIDDEN_WITHDRAWAL_ADDRESS': InvalidAddress,
+                    'WITHDRAWAL_ALREADY_IN_PROGRESS': ExchangeError,
+                    'NO_BALANCE': InsufficientFunds,
+                    'DAILY_LIMIT_EXCEEDED': ExchangeError,
+                    'WITHDRAWAL_ALREADY_FINISHED': ExchangeError,
+                    'CANNOT_CANCEL_WITHDRAWAL': ExchangeError,
+                    'NOT_FOUND': ExchangeError,
                 },
             },
-            'options': {
-                'createMarketBuyOrderRequiresPrice': true,
-                'fetchTickersMaxLength': 4096,
-                'fetchOrderBooksMaxLength': 4096,
-                'tradingFeesByQuoteCurrency': {
-                    'KRW': 0.0005,
-                },
-            },
-            'commonCurrencies': {
-                'TON': 'Tokamak Network',
-            },
+            'options': {},
+            'commonCurrencies': {},
         });
     }
-    async fetchCurrency(code, params = {}) {
-        // this method is for retrieving funding fees and limits per currency
-        // it requires private access and API keys properly set up
-        await this.loadMarkets();
-        const currency = this.currency(code);
-        return await this.fetchCurrencyById(currency['id'], params);
-    }
-    async fetchCurrencyById(id, params = {}) {
-        // this method is for retrieving funding fees and limits per currency
-        // it requires private access and API keys properly set up
-        const request = {
-            'currency': id,
+    parseStatus(status) {
+        const statuses = {
+            'launched': true,
+            'stopped': false,
         };
-        const response = await this.privateGetWithdrawsChance(this.extend(request, params));
-        //
-        //     {
-        //         "member_level": {
-        //             "security_level": 3,
-        //             "fee_level": 0,
-        //             "email_verified": true,
-        //             "identity_auth_verified": true,
-        //             "bank_account_verified": true,
-        //             "kakao_pay_auth_verified": false,
-        //             "locked": false,
-        //             "wallet_locked": false
-        //         },
-        //         "currency": {
-        //             "code": "BTC",
-        //             "withdraw_fee": "0.0005",
-        //             "is_coin": true,
-        //             "wallet_state": "working",
-        //             "wallet_support": [ "deposit", "withdraw" ]
-        //         },
-        //         "account": {
-        //             "currency": "BTC",
-        //             "balance": "10.0",
-        //             "locked": "0.0",
-        //             "avg_krw_buy_price": "8042000",
-        //             "modified": false
-        //         },
-        //         "withdraw_limit": {
-        //             "currency": "BTC",
-        //             "minimum": null,
-        //             "onetime": null,
-        //             "daily": "10.0",
-        //             "remaining_daily": "10.0",
-        //             "remaining_daily_krw": "0.0",
-        //             "fixed": null,
-        //             "can_withdraw": true
-        //         }
-        //     }
-        //
-        const memberInfo = this.safeValue(response, 'member_level', {});
-        const currencyInfo = this.safeValue(response, 'currency', {});
-        const withdrawLimits = this.safeValue(response, 'withdraw_limit', {});
-        const canWithdraw = this.safeValue(withdrawLimits, 'can_withdraw');
-        const walletState = this.safeString(currencyInfo, 'wallet_state');
-        const walletLocked = this.safeValue(memberInfo, 'wallet_locked');
-        const locked = this.safeValue(memberInfo, 'locked');
-        let active = true;
-        if ((canWithdraw !== undefined) && !canWithdraw) {
-            active = false;
-        }
-        else if (walletState !== 'working') {
-            active = false;
-        }
-        else if ((walletLocked !== undefined) && walletLocked) {
-            active = false;
-        }
-        else if ((locked !== undefined) && locked) {
-            active = false;
-        }
-        const maxOnetimeWithdrawal = this.safeString(withdrawLimits, 'onetime');
-        const maxDailyWithdrawal = this.safeString(withdrawLimits, 'daily', maxOnetimeWithdrawal);
-        const remainingDailyWithdrawal = this.safeString(withdrawLimits, 'remaining_daily', maxDailyWithdrawal);
-        let maxWithdrawLimit = undefined;
-        if (Precise.stringGt(remainingDailyWithdrawal, '0')) {
-            maxWithdrawLimit = remainingDailyWithdrawal;
-        }
-        else {
-            maxWithdrawLimit = maxDailyWithdrawal;
-        }
-        const currencyId = this.safeString(currencyInfo, 'code');
-        const code = this.safeCurrencyCode(currencyId);
-        return {
-            'info': response,
-            'id': currencyId,
-            'code': code,
-            'name': code,
-            'active': active,
-            'fee': this.safeNumber(currencyInfo, 'withdraw_fee'),
-            'precision': undefined,
-            'limits': {
-                'withdraw': {
-                    'min': this.safeNumber(withdrawLimits, 'minimum'),
-                    'max': this.parseNumber(maxWithdrawLimit),
-                },
-            },
-        };
-    }
-    async fetchMarket(symbol, params = {}) {
-        // this method is for retrieving trading fees and limits per market
-        // it requires private access and API keys properly set up
-        await this.loadMarkets();
-        const market = this.market(symbol);
-        return await this.fetchMarketById(market['id'], params);
-    }
-    async fetchMarketById(id, params = {}) {
-        // this method is for retrieving trading fees and limits per market
-        // it requires private access and API keys properly set up
-        const request = {
-            'market': id,
-        };
-        const response = await this.privateGetOrdersChance(this.extend(request, params));
-        //
-        //     {
-        //         "bid_fee": "0.0015",
-        //         "ask_fee": "0.0015",
-        //         "market": {
-        //             "id": "KRW-BTC",
-        //             "name": "BTC/KRW",
-        //             "order_types": [ "limit" ],
-        //             "order_sides": [ "ask", "bid" ],
-        //             "bid": { "currency": "KRW", "price_unit": null, "min_total": 1000 },
-        //             "ask": { "currency": "BTC", "price_unit": null, "min_total": 1000 },
-        //             "max_total": "100000000.0",
-        //             "state": "active",
-        //         },
-        //         "bid_account": {
-        //             "currency": "KRW",
-        //             "balance": "0.0",
-        //             "locked": "0.0",
-        //             "avg_buy_price": "0",
-        //             "avg_buy_price_modified": false,
-        //             "unit_currency": "KRW",
-        //         },
-        //         "ask_account": {
-        //             "currency": "BTC",
-        //             "balance": "10.0",
-        //             "locked": "0.0",
-        //             "avg_buy_price": "8042000",
-        //             "avg_buy_price_modified": false,
-        //             "unit_currency": "KRW",
-        //         }
-        //     }
-        //
-        const marketInfo = this.safeValue(response, 'market');
-        const bid = this.safeValue(marketInfo, 'bid');
-        const ask = this.safeValue(marketInfo, 'ask');
-        const marketId = this.safeString(marketInfo, 'id');
-        const baseId = this.safeString(ask, 'currency');
-        const quoteId = this.safeString(bid, 'currency');
-        const base = this.safeCurrencyCode(baseId);
-        const quote = this.safeCurrencyCode(quoteId);
-        const state = this.safeString(marketInfo, 'state');
-        const bidFee = this.safeString(response, 'bid_fee');
-        const askFee = this.safeString(response, 'ask_fee');
-        const fee = this.parseNumber(Precise.stringMax(bidFee, askFee));
-        return this.safeMarketStructure({
-            'id': marketId,
-            'symbol': base + '/' + quote,
-            'base': base,
-            'quote': quote,
-            'settle': undefined,
-            'baseId': baseId,
-            'quoteId': quoteId,
-            'settleId': undefined,
-            'type': 'spot',
-            'spot': true,
-            'margin': false,
-            'swap': false,
-            'future': false,
-            'option': false,
-            'active': (state === 'active'),
-            'contract': false,
-            'linear': undefined,
-            'inverse': undefined,
-            'taker': fee,
-            'maker': fee,
-            'contractSize': undefined,
-            'expiry': undefined,
-            'expiryDatetime': undefined,
-            'strike': undefined,
-            'optionType': undefined,
-            'precision': {
-                'amount': this.parseNumber('1e-8'),
-                'price': this.parseNumber('1e-8'),
-            },
-            'limits': {
-                'leverage': {
-                    'min': undefined,
-                    'max': undefined,
-                },
-                'amount': {
-                    'min': this.safeNumber(ask, 'min_total'),
-                    'max': undefined,
-                },
-                'price': {
-                    'min': undefined,
-                    'max': undefined,
-                },
-                'cost': {
-                    'min': this.safeNumber(bid, 'min_total'),
-                    'max': this.safeNumber(marketInfo, 'max_total'),
-                },
-                'info': response,
-            },
-        });
+        return this.safeBool(statuses, status, false);
     }
     /**
      * @method
      * @name korbit#fetchMarkets
-     * @see https://docs.korbit.com/reference/%EB%A7%88%EC%BC%93-%EC%BD%94%EB%93%9C-%EC%A1%B0%ED%9A%8C
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_currencies
+     * @description retrieves data on all currencies for korbit
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object[]} an array of objects representing market data
+     */
+    async fetchCurrencies(params = {}) {
+        const response = await this.publicGetCurrencies();
+        // {
+        //     "success": true,
+        //     "data": [
+        //         {
+        //             "name": "krw",
+        //             "fullName": "Won",
+        //             "withdrawalMaxAmountPerRequest": "5000000000",
+        //             "depositStatus": "launched",
+        //             "withdrawalStatus": "launched",
+        //             "withdrawalTxFee": "1000",
+        //             "withdrawalMinAmount": "1000"
+        //         },
+        //         {
+        //             "name": "btc",
+        //             "fullName": "Bitcoin",
+        //             "withdrawalMaxAmountPerRequest": "120",
+        //             "defaultNetwork": "BTC",
+        //             "networkList": [
+        //                 {
+        //                     "name": "BTC",
+        //                     "fullName": "Bitcoin",
+        //                     "depositStatus": "launched",
+        //                     "withdrawalStatus": "launched",
+        //                     "confirmationCount": 3,
+        //                     "withdrawalTxFee": "0.0008",
+        //                     "withdrawalMinAmount": "0.0001",
+        //                     "withdrawalPrecision": 8,
+        //                     "hasSecondaryAddr": false,
+        //                     "addressExplorerUrl": "https://www.blockchain.com/ko/btc/address/"
+        //                 }
+        //             ],
+        //             "depositStatus": "launched",
+        //             "withdrawalStatus": "launched",
+        //             "confirmationCount": "3",
+        //             "withdrawalTxFee": "0.0008",
+        //             "withdrawalMinAmount": "0.0001"
+        //         },
+        //         {
+        //             "name": "eth",
+        //             "fullName": "Ethereum",
+        //             "withdrawalMaxAmountPerRequest": "2000",
+        //             "defaultNetwork": "ETH",
+        //             "networkList": [
+        //                 {
+        //                     "name": "ETH",
+        //                     "fullName": "Ethereum",
+        //                     "depositStatus": "launched",
+        //                     "withdrawalStatus": "launched",
+        //                     "confirmationCount": 45,
+        //                     "withdrawalTxFee": "0.005",
+        //                     "withdrawalMinAmount": "0.0001",
+        //                     "withdrawalPrecision": 8,
+        //                     "hasSecondaryAddr": false,
+        //                     "addressExplorerUrl": "https://etherscan.io/address/"
+        //                 },
+        //                 {
+        //                     "name": "BASE",
+        //                     "fullName": "BASE",
+        //                     "depositStatus": "launched",
+        //                     "withdrawalStatus": "launched",
+        //                     "confirmationCount": 1,
+        //                     "withdrawalTxFee": "0.001",
+        //                     "withdrawalMinAmount": "0.0001",
+        //                     "withdrawalPrecision": 8,
+        //                     "hasSecondaryAddr": false,
+        //                     "addressExplorerUrl": "https://basescan.org/address/"
+        //                 }
+        //             ],
+        //             "depositStatus": "launched",
+        //             "withdrawalStatus": "launched",
+        //             "confirmationCount": "45",
+        //             "withdrawalTxFee": "0.005",
+        //             "withdrawalMinAmount": "0.0001"
+        //         },
+        //         {
+        //             "name": "usdt",
+        //             "fullName": "Tether",
+        //             "withdrawalMaxAmountPerRequest": "500000",
+        //             "defaultNetwork": "TRX",
+        //             "networkList": [
+        //                 {
+        //                     "name": "TRX",
+        //                     "fullName": "Tron",
+        //                     "depositStatus": "launched",
+        //                     "withdrawalStatus": "launched",
+        //                     "confirmationCount": 1,
+        //                     "withdrawalTxFee": "1",
+        //                     "withdrawalMinAmount": "1",
+        //                     "withdrawalPrecision": 6,
+        //                     "hasSecondaryAddr": false,
+        //                     "addressExplorerUrl": "https://tronscan.org/#/address/"
+        //                 }
+        //             ],
+        //             "depositStatus": "launched",
+        //             "withdrawalStatus": "launched",
+        //             "confirmationCount": "1",
+        //             "withdrawalTxFee": "1",
+        //             "withdrawalMinAmount": "1"
+        //         }
+        //     ]
+        // }
+        const data = this.safeValue(response, 'data', []);
+        const result = {};
+        for (let i = 0; i < data.length; i++) {
+            const entry = data[i];
+            const id = this.safeString(entry, 'name');
+            const name = this.safeString(entry, 'fullName');
+            const code = this.safeCurrencyCode(id);
+            let minPrecision = undefined;
+            let isWithdrawEnabled = false;
+            let isDepositEnabled = false;
+            const networkList = this.safeList(entry, 'networkList', []);
+            const fees = {};
+            let fee = undefined;
+            const networks = {};
+            for (let j = 0; j < networkList.length; j++) {
+                const networkItem = networkList[j];
+                const network = this.safeString(networkItem, 'name');
+                const networkCode = this.networkIdToCode(network);
+                // const name = this.safeString (networkItem, 'name');
+                const withdrawFee = this.safeNumber(networkItem, 'withdrawalTxFee');
+                const depositEnable = this.parseStatus(this.safeString(networkItem, 'depositStatus'));
+                const withdrawEnable = this.parseStatus(this.safeString(networkItem, 'withdrawalStatus'));
+                isDepositEnabled = isDepositEnabled || depositEnable;
+                isWithdrawEnabled = isWithdrawEnabled || withdrawEnable;
+                fees[network] = withdrawFee;
+                const isDefault = j === 0;
+                if (isDefault || (fee === undefined)) {
+                    fee = withdrawFee;
+                }
+                const precisionDecimal = this.safeInteger(networkItem, 'withdrawalPrecision');
+                const precisionTick = 10 ** -precisionDecimal
+                minPrecision = (minPrecision === undefined) ? precisionTick : Math.min(minPrecision, precisionTick);
+                networks[networkCode] = {
+                    'info': networkItem,
+                    'id': network,
+                    'network': networkCode,
+                    'active': depositEnable && withdrawEnable,
+                    'deposit': depositEnable,
+                    'withdraw': withdrawEnable,
+                    'fee': withdrawFee,
+                    'precision': this.parseNumber(precisionTick),
+                    'limits': {
+                        'withdraw': {
+                            'min': this.safeNumber(networkItem, 'withdrawalMinAmount'),
+                        }
+                    },
+                };
+            }
+            const active = isWithdrawEnabled && isDepositEnabled;
+            result[code] = {
+                'id': id,
+                'name': name,
+                'code': code,
+                'precision': this.parseNumber(minPrecision),
+                'info': entry,
+                'active': active,
+                'deposit': isDepositEnabled,
+                'withdraw': isWithdrawEnabled,
+                'networks': networks,
+                'fee': fee,
+                'fees': fees,
+                'limits': this.limits,
+            };
+        }
+        return result;
+    }
+    /**
+     * @method
+     * @name korbit#fetchMarkets
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_tradingFeePolicy
      * @description retrieves data on all markets for korbit
      * @param {object} [params] extra parameters specific to the exchange API endpoint
      * @returns {object[]} an array of objects representing market data
      */
     async fetchMarkets(params = {}) {
-        const response = await this.publicGetMarketAll(params);
-        //
-        //    [
-        //        {
-        //            "market": "KRW-BTC",
-        //            "korean_name": "비트코인",
-        //            "english_name": "Bitcoin"
-        //        },
-        //        ...,
-        //    ]
-        //
-        return this.parseMarkets(response);
+        const response = await this.privateGetTradingFeePolicy(params);
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "symbol": "btc_krw",
+        //         "buyFeeCurrency": "btc",
+        //         "sellFeeCurrency": "krw",
+        //         "maxFeeRate": "0.0015",
+        //         "takerFeeRate": "0.0015",
+        //         "makerFeeRate": "0"
+        //       },
+        //       {
+        //         "symbol": "eth_krw",
+        //         "buyFeeCurrency": "eth",
+        //         "sellFeeCurrency": "krw",
+        //         "maxFeeRate": "0.0015",
+        //         "takerFeeRate": "0.0015",
+        //         "makerFeeRate": "0"
+        //       },
+        //       {
+        //         "symbol": "etc_krw",
+        //         "buyFeeCurrency": "krw",
+        //         "sellFeeCurrency": "krw",
+        //         "maxFeeRate": "0.0015",
+        //         "takerFeeRate": "0.0015",
+        //         "makerFeeRate": "0"
+        //       },
+        //       {
+        //         "symbol": "xrp_krw",
+        //         "buyFeeCurrency": "krw",
+        //         "sellFeeCurrency": "krw",
+        //         "maxFeeRate": "0.0015",
+        //         "takerFeeRate": "0.0015",
+        //         "makerFeeRate": "0"
+        //       }
+        //     ]
+        // }
+        const data = this.safeValue(response, 'data', []);
+        const result = [];
+        for (let i = 0; i < data.length; i++) {
+            result.push(this.parseMarket(data[i]));
+        }
+        return result;
     }
     parseMarket(market) {
-        const id = this.safeString(market, 'market');
-        const [quoteId, baseId] = id.split('-');
+        //       {
+        //         "symbol": "xrp_krw",
+        //         "buyFeeCurrency": "krw",
+        //         "sellFeeCurrency": "krw",
+        //         "maxFeeRate": "0.0015",
+        //         "takerFeeRate": "0.0015",
+        //         "makerFeeRate": "0"
+        //       }
+        const marketId = this.safeString(market, 'symbol');
+        const [baseId, quoteId] = marketId.split('_');
         const base = this.safeCurrencyCode(baseId);
         const quote = this.safeCurrencyCode(quoteId);
+        const makerFeeRate = this.safeNumber(market, 'makerFeeRate', this.fees['trading']['maker']);
+        const takerFeeRate = this.safeNumber(market, 'takerFeeRate', this.fees['trading']['taker']);
         return this.safeMarketStructure({
-            'id': id,
+            'id': marketId,
             'symbol': base + '/' + quote,
             'base': base,
             'quote': quote,
@@ -457,8 +472,8 @@ export default class korbit extends Exchange {
             'contract': false,
             'linear': undefined,
             'inverse': undefined,
-            'taker': this.safeNumber(this.options['tradingFeesByQuoteCurrency'], quote, this.fees['trading']['taker']),
-            'maker': this.safeNumber(this.options['tradingFeesByQuoteCurrency'], quote, this.fees['trading']['maker']),
+            'taker': takerFeeRate,
+            'maker': makerFeeRate,
             'contractSize': undefined,
             'expiry': undefined,
             'expiryDatetime': undefined,
@@ -491,6 +506,24 @@ export default class korbit extends Exchange {
         });
     }
     parseBalance(response) {
+        // [
+        //     {
+        //         "currency": "btc",
+        //         "balance": "100",
+        //         "available": "70",
+        //         "tradeInUse": "20",
+        //         "withdrawalInUse": "10",
+        //         "avgPrice": "5000"
+        //     },
+        //     {
+        //         "currency": "eth",
+        //         "balance": "100",
+        //         "available": "70",
+        //         "tradeInUse": "20",
+        //         "withdrawalInUse": "10",
+        //         "avgPrice": "5000"
+        //     }
+        // ]
         const result = {
             'info': response,
             'timestamp': undefined,
@@ -501,8 +534,8 @@ export default class korbit extends Exchange {
             const currencyId = this.safeString(balance, 'currency');
             const code = this.safeCurrencyCode(currencyId);
             const account = this.account();
-            account['free'] = this.safeString(balance, 'balance');
-            account['used'] = this.safeString(balance, 'locked');
+            account['total'] = this.safeString(balance, 'balance');
+            account['free'] = this.safeString(balance, 'available');
             result[code] = account;
         }
         return this.safeBalance(result);
@@ -510,106 +543,42 @@ export default class korbit extends Exchange {
     /**
      * @method
      * @name korbit#fetchBalance
-     * @see https://docs.korbit.com/reference/%EC%A0%84%EC%B2%B4-%EA%B3%84%EC%A2%8C-%EC%A1%B0%ED%9A%8C
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_balance
      * @description query for balance and get the amount of funds available for trading or funds locked in orders
      * @param {object} [params] extra parameters specific to the exchange API endpoint
      * @returns {object} a [balance structure]{@link https://docs.ccxt.com/#/?id=balance-structure}
      */
     async fetchBalance(params = {}) {
         await this.loadMarkets();
-        const response = await this.privateGetAccounts(params);
-        //
-        //     [ {          currency: "BTC",
-        //                   "balance": "0.005",
-        //                    "locked": "0.0",
-        //         "avg_krw_buy_price": "7446000",
-        //                  "modified":  false     },
-        //       {          currency: "ETH",
-        //                   "balance": "0.1",
-        //                    "locked": "0.0",
-        //         "avg_krw_buy_price": "250000",
-        //                  "modified":  false    }   ]
-        //
-        return this.parseBalance(response);
-    }
-    /**
-     * @method
-     * @name korbit#fetchOrderBooks
-     * @see https://docs.korbit.com/reference/%ED%98%B8%EA%B0%80-%EC%A0%95%EB%B3%B4-%EC%A1%B0%ED%9A%8C
-     * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data for multiple markets
-     * @param {string[]|undefined} symbols list of unified market symbols, all symbols fetched if undefined, default is undefined
-     * @param {int} [limit] not used by korbit fetchOrderBooks ()
-     * @param {object} [params] extra parameters specific to the exchange API endpoint
-     * @returns {object} a dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbol
-     */
-    async fetchOrderBooks(symbols = undefined, limit = undefined, params = {}) {
-        await this.loadMarkets();
-        let ids = undefined;
-        if (symbols === undefined) {
-            ids = this.ids.join(',');
-            // max URL length is 2083 symbols, including http schema, hostname, tld, etc...
-            if (ids.length > this.options['fetchOrderBooksMaxLength']) {
-                const numIds = this.ids.length;
-                throw new ExchangeError(this.id + ' fetchOrderBooks() has ' + numIds.toString() + ' symbols (' + ids.length.toString() + ' characters) exceeding max URL length (' + this.options['fetchOrderBooksMaxLength'].toString() + ' characters), you are required to specify a list of symbols in the first argument to fetchOrderBooks');
-            }
-        }
-        else {
-            ids = this.marketIds(symbols);
-            ids = ids.join(',');
-        }
-        const request = {
-            'markets': ids,
-        };
-        const response = await this.publicGetOrderbook(this.extend(request, params));
-        //
-        //     [ {          market:   "BTC-ETH",
-        //               "timestamp":    1542899030043,
-        //          "total_ask_size":    109.57065201,
-        //          "total_bid_size":    125.74430631,
-        //         "orderbook_units": [ { ask_price: 0.02926679,
-        //                              "bid_price": 0.02919904,
-        //                               "ask_size": 4.20293961,
-        //                               "bid_size": 11.65043576 },
-        //                            ...,
-        //                            { ask_price: 0.02938209,
-        //                              "bid_price": 0.0291231,
-        //                               "ask_size": 0.05135782,
-        //                               "bid_size": 13.5595     }   ] },
-        //       {          market:   "KRW-BTC",
-        //               "timestamp":    1542899034662,
-        //          "total_ask_size":    12.89790974,
-        //          "total_bid_size":    4.88395783,
-        //         "orderbook_units": [ { ask_price: 5164000,
-        //                              "bid_price": 5162000,
-        //                               "ask_size": 2.57606495,
-        //                               "bid_size": 0.214       },
-        //                            ...,
-        //                            { ask_price: 5176000,
-        //                              "bid_price": 5152000,
-        //                               "ask_size": 2.752,
-        //                               "bid_size": 0.4650305 }    ] }   ]
-        //
-        const result = {};
-        for (let i = 0; i < response.length; i++) {
-            const orderbook = response[i];
-            const marketId = this.safeString(orderbook, 'market');
-            const symbol = this.safeSymbol(marketId, undefined, '-');
-            const timestamp = this.safeInteger(orderbook, 'timestamp');
-            result[symbol] = {
-                'symbol': symbol,
-                'bids': this.sortBy(this.parseBidsAsks(orderbook['orderbook_units'], 'bid_price', 'bid_size'), 0, true),
-                'asks': this.sortBy(this.parseBidsAsks(orderbook['orderbook_units'], 'ask_price', 'ask_size'), 0),
-                'timestamp': timestamp,
-                'datetime': this.iso8601(timestamp),
-                'nonce': undefined,
-            };
-        }
-        return result;
+        const response = await this.privateGetBalance(params);
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "currency": "btc",
+        //         "balance": "100",
+        //         "available": "70",
+        //         "tradeInUse": "20",
+        //         "withdrawalInUse": "10",
+        //         "avgPrice": "5000"
+        //       },
+        //       {
+        //         "currency": "eth",
+        //         "balance": "100",
+        //         "available": "70",
+        //         "tradeInUse": "20",
+        //         "withdrawalInUse": "10",
+        //         "avgPrice": "5000"
+        //       }
+        //     ]
+        // }
+        const data = this.safeValue(response, 'data', []);
+        return this.parseBalance(data);
     }
     /**
      * @method
      * @name korbit#fetchOrderBook
-     * @see https://docs.korbit.com/reference/%ED%98%B8%EA%B0%80-%EC%A0%95%EB%B3%B4-%EC%A1%B0%ED%9A%8C
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_orderbook
      * @description fetches information on open orders with bid (buy) and ask (sell) prices, volumes and other data
      * @param {string} symbol unified symbol of the market to fetch the order book for
      * @param {int} [limit] the maximum amount of order book entries to return
@@ -617,69 +586,123 @@ export default class korbit extends Exchange {
      * @returns {object} A dictionary of [order book structures]{@link https://docs.ccxt.com/#/?id=order-book-structure} indexed by market symbols
      */
     async fetchOrderBook(symbol, limit = undefined, params = {}) {
-        const orderbooks = await this.fetchOrderBooks([symbol], limit, params);
-        return this.safeValue(orderbooks, symbol);
+        const marketId = this.marketId(symbol);
+        const request = {
+            'symbol': marketId,
+        };
+        const response = await this.publicGetOrderbook(this.extend(request, params));
+        //
+        // {
+        //     "success": true,
+        //     "data": {
+        //       "timestamp": 1708057740895,
+        //       "bids": [
+        //         {
+        //           "price": "73303000",
+        //           "qty": "0.00898326"
+        //         },
+        //         {
+        //           "price": "73302000",
+        //           "qty": "0.00790837"
+        //         },
+        //         {
+        //           "price": "73301000",
+        //           "qty": "0.00843099"
+        //         },
+        //         {
+        //           "price": "73300000",
+        //           "qty": "0.00054024"
+        //         },
+        //         {
+        //           "price": "73299000",
+        //           "qty": "0.00663446"
+        //         }
+        //       ],
+        //       "asks": [
+        //         {
+        //           "price": "73304000",
+        //           "qty": "0.00985212"
+        //         },
+        //         {
+        //           "price": "73305000",
+        //           "qty": "0.00367505"
+        //         },
+        //         {
+        //           "price": "73306000",
+        //           "qty": "0.0096254"
+        //         },
+        //         {
+        //           "price": "73307000",
+        //           "qty": "0.00502544"
+        //         },
+        //         {
+        //           "price": "73308000",
+        //           "qty": "0.00640584"
+        //         }
+        //       ]
+        //     }
+        // }
+        //
+        const data = this.safeValue(response, 'data', {});
+        const timestamp = this.safeInteger(data, 'timestamp');
+        return {
+            'symbol': symbol,
+            'bids': this.sortBy(this.parseBidsAsks(data['bids'], 'price', 'qty'), 0, true),
+            'asks': this.sortBy(this.parseBidsAsks(data['asks'], 'price', 'qty'), 0),
+            'timestamp': timestamp,
+            'datetime': this.iso8601(timestamp),
+            'nonce': undefined,
+        };
     }
     parseTicker(ticker, market = undefined) {
         //
-        //       {                market: "BTC-ETH",
-        //                    "trade_date": "20181122",
-        //                    "trade_time": "104543",
-        //                "trade_date_kst": "20181122",
-        //                "trade_time_kst": "194543",
-        //               "trade_timestamp":  1542883543096,
-        //                 "opening_price":  0.02976455,
-        //                    "high_price":  0.02992577,
-        //                     "low_price":  0.02934283,
-        //                   "trade_price":  0.02947773,
-        //            "prev_closing_price":  0.02966,
-        //                        "change": "FALL",
-        //                  "change_price":  0.00018227,
-        //                   "change_rate":  0.0061453136,
-        //           "signed_change_price":  -0.00018227,
-        //            "signed_change_rate":  -0.0061453136,
-        //                  "trade_volume":  1.00000005,
-        //               "acc_trade_price":  100.95825586,
-        //           "acc_trade_price_24h":  289.58650166,
-        //              "acc_trade_volume":  3409.85311036,
-        //          "acc_trade_volume_24h":  9754.40510513,
-        //         "highest_52_week_price":  0.12345678,
-        //          "highest_52_week_date": "2018-02-01",
-        //          "lowest_52_week_price":  0.023936,
-        //           "lowest_52_week_date": "2017-12-08",
-        //                     "timestamp":  1542883543813  }
+        // {
+        //     "symbol": "btc_krw",
+        //     "open": "77060000",
+        //     "high": "79650000",
+        //     "low": "76550000",
+        //     "close": "77136000",
+        //     "prevClose": "77060000",
+        //     "priceChange": "76000",
+        //     "priceChangePercent": "0.1",
+        //     "volume": "48.73739983",
+        //     "quoteVolume": "3785149733.32633",
+        //     "bestBidPrice": "77136000",
+        //     "bestAskPrice": "77193000",
+        //     "lastTradedAt": 1725525721041
+        // }
         //
-        const timestamp = this.safeInteger(ticker, 'trade_timestamp');
-        const marketId = this.safeString2(ticker, 'market', 'code');
-        market = this.safeMarket(marketId, market, '-');
-        const last = this.safeString(ticker, 'trade_price');
+        const timestamp = this.safeInteger(ticker, 'lastTradedAt');
+        const marketId = this.safeString(ticker, 'symbol');
+        market = this.safeMarket(marketId, market, '_');
+        const close = this.safeString(ticker, 'close');
         return this.safeTicker({
             'symbol': market['symbol'],
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
-            'high': this.safeString(ticker, 'high_price'),
-            'low': this.safeString(ticker, 'low_price'),
+            'high': this.safeString(ticker, 'high'),
+            'low': this.safeString(ticker, 'low'),
             'bid': undefined,
             'bidVolume': undefined,
             'ask': undefined,
             'askVolume': undefined,
             'vwap': undefined,
-            'open': this.safeString(ticker, 'opening_price'),
-            'close': last,
-            'last': last,
-            'previousClose': this.safeString(ticker, 'prev_closing_price'),
-            'change': this.safeString(ticker, 'signed_change_price'),
-            'percentage': this.safeString(ticker, 'signed_change_rate'),
+            'open': this.safeString(ticker, 'open'),
+            'close': close,
+            'last': close,
+            'previousClose': this.safeString(ticker, 'prevClose'),
+            'change': this.safeString(ticker, 'priceChange'),
+            'percentage': this.safeString(ticker, 'priceChangePercent'),
             'average': undefined,
-            'baseVolume': this.safeString(ticker, 'acc_trade_volume_24h'),
-            'quoteVolume': this.safeString(ticker, 'acc_trade_price_24h'),
+            'baseVolume': this.safeString(ticker, 'volume'),
+            'quoteVolume': this.safeString(ticker, 'quoteVolume'),
             'info': ticker,
         }, market);
     }
     /**
      * @method
      * @name korbit#fetchTickers
-     * @see https://docs.korbit.com/reference/ticker%ED%98%84%EC%9E%AC%EA%B0%80-%EC%A0%95%EB%B3%B4
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_tickers
      * @description fetches price tickers for multiple markets, statistical information calculated over the past 24 hours for each market
      * @param {string[]|undefined} symbols unified symbols of the markets to fetch the ticker for, all market tickers are returned if not assigned
      * @param {object} [params] extra parameters specific to the exchange API endpoint
@@ -702,41 +725,51 @@ export default class korbit extends Exchange {
             ids = ids.join(',');
         }
         const request = {
-            'markets': ids,
+            'symbol': ids,
         };
-        const response = await this.publicGetTicker(this.extend(request, params));
+        const response = await this.publicGetTickers(this.extend(request, params));
         //
-        //     [ {                market: "BTC-ETH",
-        //                    "trade_date": "20181122",
-        //                    "trade_time": "104543",
-        //                "trade_date_kst": "20181122",
-        //                "trade_time_kst": "194543",
-        //               "trade_timestamp":  1542883543097,
-        //                 "opening_price":  0.02976455,
-        //                    "high_price":  0.02992577,
-        //                     "low_price":  0.02934283,
-        //                   "trade_price":  0.02947773,
-        //            "prev_closing_price":  0.02966,
-        //                        "change": "FALL",
-        //                  "change_price":  0.00018227,
-        //                   "change_rate":  0.0061453136,
-        //           "signed_change_price":  -0.00018227,
-        //            "signed_change_rate":  -0.0061453136,
-        //                  "trade_volume":  1.00000005,
-        //               "acc_trade_price":  100.95825586,
-        //           "acc_trade_price_24h":  289.58650166,
-        //              "acc_trade_volume":  3409.85311036,
-        //          "acc_trade_volume_24h":  9754.40510513,
-        //         "highest_52_week_price":  0.12345678,
-        //          "highest_52_week_date": "2018-02-01",
-        //          "lowest_52_week_price":  0.023936,
-        //           "lowest_52_week_date": "2017-12-08",
-        //                     "timestamp":  1542883543813  } ]
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "symbol": "btc_krw",
+        //         "open": "77060000",
+        //         "high": "79650000",
+        //         "low": "76550000",
+        //         "close": "77136000",
+        //         "prevClose": "77060000",
+        //         "priceChange": "76000",
+        //         "priceChangePercent": "0.1",
+        //         "volume": "48.73739983",
+        //         "quoteVolume": "3785149733.32633",
+        //         "bestBidPrice": "77136000",
+        //         "bestAskPrice": "77193000",
+        //         "lastTradedAt": 1725525721041
+        //       },
+        //       {
+        //         "symbol": "eth_krw",
+        //         "open": "3259000",
+        //         "high": "3370000",
+        //         "low": "3222000",
+        //         "close": "3250000",
+        //         "prevClose": "3259000",
+        //         "priceChange": "-9000",
+        //         "priceChangePercent": "-0.28",
+        //         "volume": "161.99278306",
+        //         "quoteVolume": "532827941.01581",
+        //         "bestBidPrice": "3251000",
+        //         "bestAskPrice": "3254000",
+        //         "lastTradedAt": 1725525545630
+        //       }
+        //     ]
+        // }
         //
+        const data = this.safeValue(response, 'data', []);
         const result = {};
-        for (let t = 0; t < response.length; t++) {
-            const ticker = this.parseTicker(response[t]);
-            const symbol = ticker['symbol'];
+        for (let t = 0; t < data.length; t++) {
+            const ticker = this.parseTicker(data[t]);
+            const symbol = this.symbol(ticker['symbol']);
             result[symbol] = ticker;
         }
         return this.filterByArrayTickers(result, 'symbol', symbols);
@@ -758,57 +791,59 @@ export default class korbit extends Exchange {
         //
         // fetchTrades
         //
-        //       {             market: "BTC-ETH",
-        //             "trade_date_utc": "2018-11-22",
-        //             "trade_time_utc": "13:55:24",
-        //                  "timestamp":  1542894924397,
-        //                "trade_price":  0.02914289,
-        //               "trade_volume":  0.20074397,
-        //         "prev_closing_price":  0.02966,
-        //               "change_price":  -0.00051711,
-        //                    "ask_bid": "ASK",
-        //              "sequential_id":  15428949259430000 }
+        // {
+        //     "timestamp": 1708057270922,
+        //     "price": "70509000",
+        //     "qty": "0.00844147",
+        //     "isBuyerTaker": false,
+        //     "tradeId": 21769250,
+        // }
         //
-        // fetchOrder trades
+        // fetchMyTrades
         //
-        //         {
-        //             "market": "KRW-BTC",
-        //             "uuid": "78162304-1a4d-4524-b9e6-c9a9e14d76c3",
-        //             "price": "101000.0",
-        //             "volume": "0.77368323",
-        //             "funds": "78142.00623",
-        //             "ask_fee": "117.213009345",
-        //             "bid_fee": "117.213009345",
-        //             "created_at": "2018-04-05T14:09:15+09:00",
-        //             "side": "bid",
-        //         }
+        // {
+        //     "symbol": "btc_krw",
+        //     "tradeId": 52,
+        //     "orderId": 382312,
+        //     "side": "buy",
+        //     "price": "5000",
+        //     "qty": "10",
+        //     "amt": "50000",
+        //     "tradedAt": 1700000000000,
+        //     "isTaker": true,
+        //     "feeCurrency": "krw",
+        //     "feeQty": "50"
+        // }
         //
-        const id = this.safeString2(trade, 'sequential_id', 'uuid');
-        const orderId = undefined;
-        let timestamp = this.safeInteger(trade, 'timestamp');
-        if (timestamp === undefined) {
-            timestamp = this.parse8601(this.safeString(trade, 'created_at'));
+        const id = this.safeString(trade, 'tradeId');
+        const orderId = this.safeString(trade, 'orderId');
+        const timestamp = this.safeInteger2(trade, 'timestamp', 'tradedAt');
+        const side = this.safeString(trade, 'side');
+        if (side !== undefined) {
+            const isBuyerTaker = this.safeString(trade, 'isBuyerTaker');
+            if (isBuyerTaker === true) {
+                side = 'sell';
+            }
+            else {
+                side = 'buy';
+            }
         }
-        let side = undefined;
-        const askOrBid = this.safeStringLower2(trade, 'ask_bid', 'side');
-        if (askOrBid === 'ask') {
-            side = 'sell';
-        }
-        else if (askOrBid === 'bid') {
-            side = 'buy';
-        }
-        const cost = this.safeString(trade, 'funds');
-        const price = this.safeString2(trade, 'trade_price', 'price');
-        const amount = this.safeString2(trade, 'trade_volume', 'volume');
-        const marketId = this.safeString2(trade, 'market', 'code');
-        market = this.safeMarket(marketId, market, '-');
+        const price = this.safeString(trade, 'price');
+        const amount = this.safeString(trade, 'qty');
+        const marketId = this.safeString(trade, 'symbol');
+        market = this.safeMarket(marketId, market, '_');
         let fee = undefined;
-        const feeCost = this.safeString(trade, askOrBid + '_fee');
+        const feeCost = this.safeString(trade, 'feeQty');
         if (feeCost !== undefined) {
             fee = {
                 'currency': market['quote'],
                 'cost': feeCost,
             };
+        }
+        const isTaker = this.safeString(trade, 'isTaker');
+        let takerOrMaker = undefined;
+        if (isTaker !== undefined) {
+            takerOrMaker = isTaker ? 'taker' : 'maker'
         }
         return this.safeTrade({
             'id': id,
@@ -819,7 +854,7 @@ export default class korbit extends Exchange {
             'symbol': market['symbol'],
             'type': undefined,
             'side': side,
-            'takerOrMaker': undefined,
+            'takerOrMaker': takerOrMaker,
             'price': price,
             'amount': amount,
             'cost': cost,
@@ -829,7 +864,7 @@ export default class korbit extends Exchange {
     /**
      * @method
      * @name korbit#fetchTrades
-     * @see https://docs.korbit.com/reference/%EC%B5%9C%EA%B7%BC-%EC%B2%B4%EA%B2%B0-%EB%82%B4%EC%97%AD
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_trades
      * @description get the list of most recent trades for a particular symbol
      * @param {string} symbol unified symbol of the market to fetch trades for
      * @param {int} [since] timestamp in ms of the earliest trade to fetch
@@ -847,125 +882,165 @@ export default class korbit extends Exchange {
             'market': market['id'],
             'count': limit,
         };
-        const response = await this.publicGetTradesTicks(this.extend(request, params));
+        const response = await this.publicGetTrades(this.extend(request, params));
         //
-        //     [ {             market: "BTC-ETH",
-        //             "trade_date_utc": "2018-11-22",
-        //             "trade_time_utc": "13:55:24",
-        //                  "timestamp":  1542894924397,
-        //                "trade_price":  0.02914289,
-        //               "trade_volume":  0.20074397,
-        //         "prev_closing_price":  0.02966,
-        //               "change_price":  -0.00051711,
-        //                    "ask_bid": "ASK",
-        //              "sequential_id":  15428949259430000 },
-        //       {             market: "BTC-ETH",
-        //             "trade_date_utc": "2018-11-22",
-        //             "trade_time_utc": "13:03:10",
-        //                  "timestamp":  1542891790123,
-        //                "trade_price":  0.02917,
-        //               "trade_volume":  7.392,
-        //         "prev_closing_price":  0.02966,
-        //               "change_price":  -0.00049,
-        //                    "ask_bid": "ASK",
-        //              "sequential_id":  15428917910540000 }  ]
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "timestamp": 1708057271149,
+        //         "price": "70507000",
+        //         "qty": "0.00981535",
+        //         "isBuyerTaker": false
+        //       },
+        //       {
+        //         "timestamp": 1708057271035,
+        //         "price": "70508000",
+        //         "qty": "0.00682475",
+        //         "isBuyerTaker": false
+        //       },
+        //       {
+        //         "timestamp": 1708057270922,
+        //         "price": "70509000",
+        //         "qty": "0.00844147",
+        //         "isBuyerTaker": false
+        //       },
+        //       {
+        //         "timestamp": 1708057270809,
+        //         "price": "70510000",
+        //         "qty": "0.00553963",
+        //         "isBuyerTaker": false
+        //       }
+        //     ]
+        // }
         //
+        const data = this.safeValue(response, 'data', []);
+        for (let i = 0; i < data.length; i++) {
+            const entry = data[i];
+            entry['symbol'] = market['id'];
+        }
         return this.parseTrades(response, market, since, limit);
     }
     /**
      * @method
+     * @name korbit#fetchTradingFees
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_tradingFeePolicy
+     * @description fetch the trading fees for a market
+     * @param {string[]|undefined} symbols unified symbols of the markets
+     * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @returns {object} a [fee structure]{@link https://docs.ccxt.com/#/?id=fee-structure}
+     */
+    async fetchTradingFees(symbols, params = {}) {
+        await this.loadMarkets();
+        symbols = this.marketSymbols(symbols);
+        let ids = undefined;
+        if (symbols === undefined) {
+            ids = this.ids.join(',');
+            // max URL length is 2083 symbols, including http schema, hostname, tld, etc...
+            if (ids.length > this.options['fetchTickersMaxLength']) {
+                const numIds = this.ids.length;
+                throw new ExchangeError(this.id + ' fetchTickers() has ' + numIds.toString() + ' symbols exceeding max URL length, you are required to specify a list of symbols in the first argument to fetchTickers');
+            }
+        }
+        else {
+            ids = this.marketIds(symbols);
+            ids = ids.join(',');
+        }
+        const request = {
+            'symbol': ids,
+        };
+        const response = await this.privateGetTradingFeePolicy(this.extend(request, params));
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "symbol": "btc_krw",
+        //         "buyFeeCurrency": "btc",
+        //         "sellFeeCurrency": "krw",
+        //         "maxFeeRate": "0.0015",
+        //         "takerFeeRate": "0.0015",
+        //         "makerFeeRate": "0"
+        //       },
+        //       {
+        //         "symbol": "eth_krw",
+        //         "buyFeeCurrency": "eth",
+        //         "sellFeeCurrency": "krw",
+        //         "maxFeeRate": "0.0015",
+        //         "takerFeeRate": "0.0015",
+        //         "makerFeeRate": "0"
+        //       },
+        //       {
+        //         "symbol": "etc_krw",
+        //         "buyFeeCurrency": "krw",
+        //         "sellFeeCurrency": "krw",
+        //         "maxFeeRate": "0.0015",
+        //         "takerFeeRate": "0.0015",
+        //         "makerFeeRate": "0"
+        //       },
+        //       {
+        //         "symbol": "xrp_krw",
+        //         "buyFeeCurrency": "krw",
+        //         "sellFeeCurrency": "krw",
+        //         "maxFeeRate": "0.0015",
+        //         "takerFeeRate": "0.0015",
+        //         "makerFeeRate": "0"
+        //       }
+        //     ]
+        // }
+        const data = this.safeValue(response, 'data', []);
+        const result = {};
+        for (let i = 0; i < data.length; i++) {
+            const taker = this.safeString(response[i], 'takerFeeRate');
+            const maker = this.safeString(response[i], 'makerFeeRate');
+            const symbol = this.symbol(this.safeString(response[i], 'symbol'));
+            result[symbol] = {
+                'info': response[i],
+                'symbol': symbol,
+                'maker': this.parseNumber(maker),
+                'taker': this.parseNumber(taker),
+                'percentage': true,
+                'tierBased': false,
+            };
+        }
+        return result;
+    }
+    /**
+     * @method
      * @name korbit#fetchTradingFee
-     * @see https://docs.korbit.com/reference/%EC%A3%BC%EB%AC%B8-%EA%B0%80%EB%8A%A5-%EC%A0%95%EB%B3%B4
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_tradingFeePolicy
      * @description fetch the trading fees for a market
      * @param {string} symbol unified market symbol
      * @param {object} [params] extra parameters specific to the exchange API endpoint
      * @returns {object} a [fee structure]{@link https://docs.ccxt.com/#/?id=fee-structure}
      */
     async fetchTradingFee(symbol, params = {}) {
-        await this.loadMarkets();
-        const market = this.market(symbol);
-        const request = {
-            'market': market['id'],
-        };
-        const response = await this.privateGetOrdersChance(this.extend(request, params));
-        //
-        //     {
-        //         "bid_fee": "0.0005",
-        //         "ask_fee": "0.0005",
-        //         "maker_bid_fee": "0.0005",
-        //         "maker_ask_fee": "0.0005",
-        //         "market": {
-        //             "id": "KRW-BTC",
-        //             "name": "BTC/KRW",
-        //             "order_types": [ "limit" ],
-        //             "order_sides": [ "ask", "bid" ],
-        //             "bid": { "currency": "KRW", "price_unit": null, "min_total": 5000 },
-        //             "ask": { "currency": "BTC", "price_unit": null, "min_total": 5000 },
-        //             "max_total": "1000000000.0",
-        //             "state": "active"
-        //         },
-        //         "bid_account": {
-        //             "currency": "KRW",
-        //             "balance": "0.34202414",
-        //             "locked": "4999.99999922",
-        //             "avg_buy_price": "0",
-        //             "avg_buy_price_modified": true,
-        //             "unit_currency": "KRW"
-        //         },
-        //         "ask_account": {
-        //             "currency": "BTC",
-        //             "balance": "0.00048",
-        //             "locked": "0.0",
-        //             "avg_buy_price": "20870000",
-        //             "avg_buy_price_modified": false,
-        //             "unit_currency": "KRW"
-        //         }
-        //     }
-        //
-        const askFee = this.safeString(response, 'ask_fee');
-        const bidFee = this.safeString(response, 'bid_fee');
-        const taker = Precise.stringMax(askFee, bidFee);
-        const makerAskFee = this.safeString(response, 'maker_ask_fee');
-        const makerBidFee = this.safeString(response, 'maker_bid_fee');
-        const maker = Precise.stringMax(makerAskFee, makerBidFee);
-        return {
-            'info': response,
-            'symbol': symbol,
-            'maker': this.parseNumber(maker),
-            'taker': this.parseNumber(taker),
-            'percentage': true,
-            'tierBased': false,
-        };
+        const tradingFee = await this.fetchTradingFee([symbol], params);
+        return this.safeValue(tradingFee, symbol);
     }
     parseOHLCV(ohlcv, market = undefined) {
         //
-        //     {
-        //         "market": "BTC-ETH",
-        //         "candle_date_time_utc": "2018-11-22T13:47:00",
-        //         "candle_date_time_kst": "2018-11-22T22:47:00",
-        //         "opening_price": 0.02915963,
-        //         "high_price": 0.02915963,
-        //         "low_price": 0.02915448,
-        //         "trade_price": 0.02915448,
-        //         "timestamp": 1542894473674,
-        //         "candle_acc_trade_price": 0.0981629437535248,
-        //         "candle_acc_trade_volume": 3.36693173,
-        //         "unit": 1
-        //     }
+        // {
+        //     "timestamp": 1708041600000,
+        //     "open": "71211000",
+        //     "high": "9999990000",
+        //     "low": "300000",
+        //     "close": "71392000",
+        //     "volume": "1.932320026577213946"
+        // }
         //
         return [
-            this.parse8601(this.safeString(ohlcv, 'candle_date_time_utc')),
-            this.safeNumber(ohlcv, 'opening_price'),
-            this.safeNumber(ohlcv, 'high_price'),
-            this.safeNumber(ohlcv, 'low_price'),
-            this.safeNumber(ohlcv, 'trade_price'),
-            this.safeNumber(ohlcv, 'candle_acc_trade_volume'), // base volume
+            this.safeInteger(ohlcv, 'timestamp'),
+            this.safeNumber(ohlcv, 'open'),
+            this.safeNumber(ohlcv, 'high'),
+            this.safeNumber(ohlcv, 'low'),
+            this.safeNumber(ohlcv, 'close'),
+            this.safeNumber(ohlcv, 'volume'),
         ];
     }
     /**
      * @method
      * @name korbit#fetchOHLCV
-     * @see https://docs.korbit.com/reference/%EB%B6%84minute-%EC%BA%94%EB%93%A4-1
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_candles
      * @description fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
      * @param {string} symbol unified symbol of the market to fetch OHLCV data for
      * @param {string} timeframe the length of time each candle represents
@@ -977,58 +1052,69 @@ export default class korbit extends Exchange {
     async fetchOHLCV(symbol, timeframe = '1m', since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets();
         const market = this.market(symbol);
-        const timeframePeriod = this.parseTimeframe(timeframe);
-        const timeframeValue = this.safeString(this.timeframes, timeframe, timeframe);
+        const until = this.safeInteger(params, 'until');
+        params = this.omit(params, ['until']);
         if (limit === undefined) {
             limit = 200;
         }
         const request = {
-            'market': market['id'],
-            'timeframe': timeframeValue,
-            'count': limit,
+            'symbol': market['id'],
+            'interval': this.safeString(this.timeframes, timeframe, timeframe),
+            'limit': limit,
         };
-        let response = undefined;
         if (since !== undefined) {
-            // convert `since` to `to` value
-            request['to'] = this.iso8601(this.sum(since, timeframePeriod * limit * 1000));
+            request['start'] = since;
         }
-        if (timeframeValue === 'minutes') {
-            const numMinutes = Math.round(timeframePeriod / 60);
-            request['unit'] = numMinutes;
-            response = await this.publicGetCandlesTimeframeUnit(this.extend(request, params));
+        if (until !== undefined) {
+            request['end'] = until;
         }
-        else {
-            response = await this.publicGetCandlesTimeframe(this.extend(request, params));
-        }
+        const response = await this.publicGetCandles(this.extend(request, params));
         //
-        //     [
-        //         {
-        //             "market": "BTC-ETH",
-        //             "candle_date_time_utc": "2018-11-22T13:47:00",
-        //             "candle_date_time_kst": "2018-11-22T22:47:00",
-        //             "opening_price": 0.02915963,
-        //             "high_price": 0.02915963,
-        //             "low_price": 0.02915448,
-        //             "trade_price": 0.02915448,
-        //             "timestamp": 1542894473674,
-        //             "candle_acc_trade_price": 0.0981629437535248,
-        //             "candle_acc_trade_volume": 3.36693173,
-        //             "unit": 1
-        //         },
-        //         {
-        //             "market": "BTC-ETH",
-        //             "candle_date_time_utc": "2018-11-22T10:06:00",
-        //             "candle_date_time_kst": "2018-11-22T19:06:00",
-        //             "opening_price": 0.0294,
-        //             "high_price": 0.02940882,
-        //             "low_price": 0.02934283,
-        //             "trade_price": 0.02937354,
-        //             "timestamp": 1542881219276,
-        //             "candle_acc_trade_price": 0.0762597110943884,
-        //             "candle_acc_trade_volume": 2.5949617,
-        //             "unit": 1
-        //         }
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "timestamp": 1708041600000,
+        //         "open": "71211000",
+        //         "high": "9999990000",
+        //         "low": "300000",
+        //         "close": "71392000",
+        //         "volume": "1.932320026577213946"
+        //       },
+        //       {
+        //         "timestamp": 1708045200000,
+        //         "open": "73510000",
+        //         "high": "74605000",
+        //         "low": "300000",
+        //         "close": "72315000",
+        //         "volume": "2.418698679231323743"
+        //       },
+        //       {
+        //         "timestamp": 1708048800000,
+        //         "open": "72315000",
+        //         "high": "9999990000",
+        //         "low": "300000",
+        //         "close": "72380000",
+        //         "volume": "1.947520219976227299"
+        //       },
+        //       {
+        //         "timestamp": 1708052400000,
+        //         "open": "70267000",
+        //         "high": "74777000",
+        //         "low": "300000",
+        //         "close": "74049000",
+        //         "volume": "2.254855048982521506"
+        //       },
+        //       {
+        //         "timestamp": 1708056000000,
+        //         "open": "68304000",
+        //         "high": "74834000",
+        //         "low": "68241000",
+        //         "close": "74825000",
+        //         "volume": "0.630193755379195341"
+        //       }
         //     ]
+        // }
         //
         return this.parseOHLCVs(response, market, timeframe, since, limit);
     }
@@ -1036,8 +1122,7 @@ export default class korbit extends Exchange {
      * @method
      * @name korbit#createOrder
      * @description create a trade order
-     * @see https://docs.korbit.com/reference/%EC%A3%BC%EB%AC%B8%ED%95%98%EA%B8%B0
-     * @see https://global-docs.korbit.com/reference/order
+     * @see https://docs.korbit.co.kr/#REST-post-_v2_orders
      * @param {string} symbol unified symbol of the market to create an order in
      * @param {string} type 'market' or 'limit'
      * @param {string} side 'buy' or 'sell'
@@ -1046,24 +1131,16 @@ export default class korbit extends Exchange {
      * @param {object} [params] extra parameters specific to the exchange API endpoint
      * @param {float} [params.cost] for market buy orders, the quote quantity that can be used as an alternative for the amount
      * @param {string} [params.timeInForce] 'IOC' or 'FOK'
+     * @param {string} [params.clientOrderId] client order id
      * @returns {object} an [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
      */
     async createOrder(symbol, type, side, amount, price = undefined, params = {}) {
         await this.loadMarkets();
         const market = this.market(symbol);
-        let orderSide = undefined;
-        if (side === 'buy') {
-            orderSide = 'bid';
-        }
-        else if (side === 'sell') {
-            orderSide = 'ask';
-        }
-        else {
-            throw new InvalidOrder(this.id + ' createOrder() allows buy or sell side only!');
-        }
         const request = {
-            'market': market['id'],
-            'side': orderSide,
+            'symbol': market['id'],
+            'side': side,
+            'orderType': type,
         };
         if (type === 'limit') {
             request['price'] = this.priceToPrecision(symbol, price);
@@ -1092,89 +1169,75 @@ export default class korbit extends Exchange {
             else {
                 quoteAmount = this.costToPrecision(symbol, amount);
             }
-            request['ord_type'] = 'price';
-            request['price'] = quoteAmount;
+            request['amt'] = quoteAmount;
         }
         else {
-            request['ord_type'] = type;
-            request['volume'] = this.amountToPrecision(symbol, amount);
+            request['qty'] = this.amountToPrecision(symbol, amount);
         }
-        const clientOrderId = this.safeString2(params, 'clientOrderId', 'identifier');
+        const clientOrderId = this.safeString(params, 'clientOrderId');
         if (clientOrderId !== undefined) {
-            request['identifier'] = clientOrderId;
+            request['clientOrderId'] = clientOrderId;
         }
         if (type !== 'market') {
-            const timeInForce = this.safeStringLower2(params, 'timeInForce', 'time_in_force');
+            const timeInForce = this.safeStringLower(params, 'timeInForce');
             params = this.omit(params, 'timeInForce');
             if (timeInForce !== undefined) {
-                request['time_in_force'] = timeInForce;
+                request['timeInForce'] = timeInForce;
             }
         }
-        params = this.omit(params, ['clientOrderId', 'identifier']);
+        params = this.omit(params, 'clientOrderId');
         const response = await this.privatePostOrders(this.extend(request, params));
         //
-        //     {
-        //         "uuid": "cdd92199-2897-4e14-9448-f923320408ad",
-        //         "side": "bid",
-        //         "ord_type": "limit",
-        //         "price": "100.0",
-        //         "avg_price": "0.0",
-        //         "state": "wait",
-        //         "market": "KRW-BTC",
-        //         "created_at": "2018-04-10T15:42:23+09:00",
-        //         "volume": "0.01",
-        //         "remaining_volume": "0.01",
-        //         "reserved_fee": "0.0015",
-        //         "remaining_fee": "0.0015",
-        //         "paid_fee": "0.0",
-        //         "locked": "1.0015",
-        //         "executed_volume": "0.0",
-        //         "trades_count": 0
+        // {
+        //     "success": true,
+        //     "data": {
+        //       "orderId": 1234
         //     }
+        // }
         //
-        return this.parseOrder(response);
+        const data = this.safeValue(response, 'data', {});
+        return this.parseOrder(data);
     }
     /**
      * @method
      * @name korbit#cancelOrder
-     * @see https://docs.korbit.com/reference/%EC%A3%BC%EB%AC%B8-%EC%B7%A8%EC%86%8C
+     * @see https://docs.korbit.co.kr/#REST-delete-_v2_orders
      * @description cancels an open order
      * @param {string} id order id
-     * @param {string} symbol not used by korbit cancelOrder ()
+     * @param {string} symbol unified symbol of the market to cancel an order
      * @param {object} [params] extra parameters specific to the exchange API endpoint
+     * @param {string} [params.clientOrderId] client order id
      * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
      */
-    async cancelOrder(id, symbol = undefined, params = {}) {
+    async cancelOrder(id = undefined, symbol, params = {}) {
         await this.loadMarkets();
+        const market = this.market(symbol);
         const request = {
-            'uuid': id,
+            'symbol': market['id'],
         };
-        const response = await this.privateDeleteOrder(this.extend(request, params));
+        if (id !== undefined) {
+            request['orderId'] = id;
+        }
+        const clientOrderId = this.safeString(params, 'clientOrderId');
+        if (clientOrderId !== undefined) {
+            request['clientOrderId'] = clientOrderId;
+        }
+        if (id === undefined && clientOrderId === undefined) {
+            throw new BadRequest(this.id + ' cancelOrder() requires id or clientOrderId argument');
+        }
+        params = this.omit(params, 'clientOrderId');
+        await this.privateCancelOrders(this.extend(request, params));
         //
-        //     {
-        //         "uuid": "cdd92199-2897-4e14-9448-f923320408ad",
-        //         "side": "bid",
-        //         "ord_type": "limit",
-        //         "price": "100.0",
-        //         "state": "wait",
-        //         "market": "KRW-BTC",
-        //         "created_at": "2018-04-10T15:42:23+09:00",
-        //         "volume": "0.01",
-        //         "remaining_volume": "0.01",
-        //         "reserved_fee": "0.0015",
-        //         "remaining_fee": "0.0015",
-        //         "paid_fee": "0.0",
-        //         "locked": "1.0015",
-        //         "executed_volume": "0.0",
-        //         "trades_count": 0
-        //     }
+        // {
+        //     "success": true
+        // }
         //
-        return this.parseOrder(response);
+        return this.parseOrder(request);
     }
     /**
      * @method
      * @name korbit#fetchDeposits
-     * @see https://docs.korbit.com/reference/%EC%9E%85%EA%B8%88-%EB%A6%AC%EC%8A%A4%ED%8A%B8-%EC%A1%B0%ED%9A%8C
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_coin_recentDeposits
      * @description fetch all deposits made to an account
      * @param {string} code unified currency code
      * @param {int} [since] the earliest time in ms to fetch deposits for
@@ -1184,75 +1247,37 @@ export default class korbit extends Exchange {
      */
     async fetchDeposits(code = undefined, since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets();
-        const request = {
-        // 'page': 1,
-        // 'order_by': 'asc', // 'desc'
-        };
+        const request = {};
         let currency = undefined;
         if (code !== undefined) {
             currency = this.currency(code);
             request['currency'] = currency['id'];
         }
-        if (limit !== undefined) {
-            request['limit'] = limit; // default is 100
+        if (limit === undefined) {
+            limit = 100;
         }
-        const response = await this.privateGetDeposits(this.extend(request, params));
+        request['limit'] = limit;
+        const response = await this.privateGetCoinRecentDeposits(this.extend(request, params));
         //
-        //     [
-        //         {
-        //             "type": "deposit",
-        //             "uuid": "94332e99-3a87-4a35-ad98-28b0c969f830",
-        //             "currency": "KRW",
-        //             "txid": "9e37c537-6849-4c8b-a134-57313f5dfc5a",
-        //             "state": "ACCEPTED",
-        //             "created_at": "2017-12-08T15:38:02+09:00",
-        //             "done_at": "2017-12-08T15:38:02+09:00",
-        //             "amount": "100000.0",
-        //             "fee": "0.0"
-        //         },
-        //         ...,
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "id": 1234,
+        //         "network": "BTC",
+        //         "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+        //         "secondaryAddress": null,
+        //         "status": "done",
+        //         "transactionHash": "0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+        //         "currency": "btc",
+        //         "quantity": "1.234",
+        //         "createdAt": 1700000000000
+        //       }
         //     ]
+        // }
         //
-        return this.parseTransactions(response, currency, since, limit);
-    }
-    /**
-     * @method
-     * @name korbit#fetchDeposit
-     * @description fetch information on a deposit
-     * @see https://global-docs.korbit.com/reference/individual-deposit-inquiry
-     * @param {string} id the unique id for the deposit
-     * @param {string} [code] unified currency code of the currency deposited
-     * @param {object} [params] extra parameters specific to the exchange API endpoint
-     * @param {string} [params.txid] withdrawal transaction id, the id argument is reserved for uuid
-     * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-     */
-    async fetchDeposit(id, code = undefined, params = {}) {
-        await this.loadMarkets();
-        const request = {
-            'uuid': id,
-        };
-        let currency = undefined;
-        if (code !== undefined) {
-            currency = this.currency(code);
-            request['currency'] = currency['id'];
-        }
-        const response = await this.privateGetDeposit(this.extend(request, params));
-        //
-        //     {
-        //         "type": "deposit",
-        //         "uuid": "7f54527e-2eee-4268-860e-fd8b9d7fe3c7",
-        //         "currency": "ADA",
-        //         "net_type": "ADA",
-        //         "txid": "99795bbfeca91eaa071068bb659b33eeb65d8aaff2551fdf7c78f345d188952b",
-        //         "state": "ACCEPTED",
-        //         "created_at": "2023-12-12T04:58:41Z",
-        //         "done_at": "2023-12-12T05:31:50Z",
-        //         "amount": "35.72344",
-        //         "fee": "0.0",
-        //         "transaction_type": "default"
-        //     }
-        //
-        return this.parseTransaction(response, currency);
+        const data = this.safeValue(response, 'data', []);
+        return this.parseTransactions(data, currency, since, limit);
     }
     /**
      * @method
@@ -1267,9 +1292,7 @@ export default class korbit extends Exchange {
      */
     async fetchWithdrawals(code = undefined, since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets();
-        const request = {
-        // 'state': 'submitting', // 'submitted', 'almost_accepted', 'rejected', 'accepted', 'processing', 'done', 'canceled'
-        };
+        const request = {};
         let currency = undefined;
         if (code !== undefined) {
             currency = this.currency(code);
@@ -1278,310 +1301,226 @@ export default class korbit extends Exchange {
         if (limit !== undefined) {
             request['limit'] = limit; // default is 100
         }
-        const response = await this.privateGetWithdraws(this.extend(request, params));
+        const response = await this.privateGetCoinRecentWithdrawals(this.extend(request, params));
         //
-        //     [
-        //         {
-        //             "type": "withdraw",
-        //             "uuid": "9f432943-54e0-40b7-825f-b6fec8b42b79",
-        //             "currency": "BTC",
-        //             "txid": null,
-        //             "state": "processing",
-        //             "created_at": "2018-04-13T11:24:01+09:00",
-        //             "done_at": null,
-        //             "amount": "0.01",
-        //             "fee": "0.0",
-        //             "krw_amount": "80420.0"
-        //         },
-        //         ...,
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "id": 1234,
+        //         "quantity": "1.234",
+        //         "fee": "0.0001",
+        //         "currency": "btc",
+        //         "status": "done",
+        //         "network": "BTC",
+        //         "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+        //         "secondaryAddress": null,
+        //         "transactionHash": "0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+        //         "createdAt": 1700000000000
+        //       }
         //     ]
+        // }
         //
-        return this.parseTransactions(response, currency, since, limit);
-    }
-    /**
-     * @method
-     * @name korbit#fetchWithdrawal
-     * @description fetch data on a currency withdrawal via the withdrawal id
-     * @see https://global-docs.korbit.com/reference/individual-withdrawal-inquiry
-     * @param {string} id the unique id for the withdrawal
-     * @param {string} [code] unified currency code of the currency withdrawn
-     * @param {object} [params] extra parameters specific to the exchange API endpoint
-     * @param {string} [params.txid] withdrawal transaction id, the id argument is reserved for uuid
-     * @returns {object} a [transaction structure]{@link https://docs.ccxt.com/#/?id=transaction-structure}
-     */
-    async fetchWithdrawal(id, code = undefined, params = {}) {
-        await this.loadMarkets();
-        const request = {
-            'uuid': id,
-        };
-        let currency = undefined;
-        if (code !== undefined) {
-            currency = this.currency(code);
-            request['currency'] = currency['id'];
-        }
-        const response = await this.privateGetWithdraw(this.extend(request, params));
-        //
-        //     {
-        //         "type": "withdraw",
-        //         "uuid": "95ef274b-23a6-4de4-95b0-5cbef4ca658f",
-        //         "currency": "ADA",
-        //         "net_type": "ADA",
-        //         "txid": "b1528f149297a71671b86636f731f8fdb0ff53da0f1d8c19093d59df96f34583",
-        //         "state": "DONE",
-        //         "created_at": "2023-12-14T02:46:52Z",
-        //         "done_at": "2023-12-14T03:10:11Z",
-        //         "amount": "35.22344",
-        //         "fee": "0.5",
-        //         "transaction_type": "default"
-        //     }
-        //
-        return this.parseTransaction(response, currency);
+        const data = this.safeValue(response, 'data', []);
+        return this.parseTransactions(data, currency, since, limit);
     }
     parseTransactionStatus(status) {
         const statuses = {
-            'submitting': 'pending',
-            'submitted': 'pending',
-            'almost_accepted': 'pending',
-            'rejected': 'failed',
-            'accepted': 'ok',
+            'pending': 'pending',
+            'actionRequired': 'pending',
+            'reviewing': 'pending',
             'processing': 'pending',
             'done': 'ok',
-            'canceled': 'canceled', // 취소됨
+            'refunded': 'failed',
+            'canceled': 'canceled',
+            'failed': 'failed',
         };
         return this.safeString(statuses, status, status);
     }
     parseTransaction(transaction, currency = undefined) {
         //
-        // fetchDeposits, fetchDeposit
+        // fetchDeposits
         //
-        //     {
-        //         "type": "deposit",
-        //         "uuid": "94332e99-3a87-4a35-ad98-28b0c969f830",
-        //         "currency": "KRW",
-        //         "txid": "9e37c537-6849-4c8b-a134-57313f5dfc5a",
-        //         "state": "ACCEPTED",
-        //         "created_at": "2017-12-08T15:38:02+09:00",
-        //         "done_at": "2017-12-08T15:38:02+09:00",
-        //         "amount": "100000.0",
-        //         "fee": "0.0"
-        //     }
+        // {
+        //     "id": 1234,
+        //     "network": "BTC",
+        //     "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+        //     "secondaryAddress": null,
+        //     "status": "done",
+        //     "transactionHash": "0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+        //     "currency": "btc",
+        //     "quantity": "1.234",
+        //     "createdAt": 1700000000000
+        // }
         //
-        // fetchWithdrawals, fetchWithdrawal
+        // fetchWithdrawals
         //
-        //     {
-        //         "type": "withdraw",
-        //         "uuid": "9f432943-54e0-40b7-825f-b6fec8b42b79",
-        //         "currency": "BTC",
-        //         "txid": "cd81e9b45df8da29f936836e58c907a106057e454a45767a7b06fcb19b966bba",
-        //         "state": "processing",
-        //         "created_at": "2018-04-13T11:24:01+09:00",
-        //         "done_at": null,
-        //         "amount": "0.01",
-        //         "fee": "0.0",
-        //         "krw_amount": "80420.0"
-        //     }
+        // {
+        //     "id": 1234,
+        //     "quantity": "1.234",
+        //     "fee": "0.0001",
+        //     "currency": "btc",
+        //     "status": "done",
+        //     "network": "BTC",
+        //     "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+        //     "secondaryAddress": null,
+        //     "transactionHash": "0x000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f",
+        //     "createdAt": 1700000000000
+        // }
         //
-        const address = undefined; // not present in the data structure received from the exchange
-        const tag = undefined; // not present in the data structure received from the exchange
-        const updatedRaw = this.safeString(transaction, 'done_at');
-        const timestamp = this.parse8601(this.safeString(transaction, 'created_at', updatedRaw));
-        let type = this.safeString(transaction, 'type');
-        if (type === 'withdraw') {
+        // withdraw (coin)
+        //
+        // {
+        //     "status": "pending",
+        //     "coinWithdrawalId": 1234
+        // }
+        //
+        if (transaction === undefined) {
+            return undefined;
+        }
+        const tag = this.safeString(transaction, 'secondaryAddress');
+        const timestamp = this.safeInteger(transaction, 'createdAt');
+        const fee = this.safeNumber(transaction, 'fee');
+        let type = 'deposit';
+        if (fee !== undefined) {
             type = 'withdrawal';
         }
         const currencyId = this.safeString(transaction, 'currency');
         const code = this.safeCurrencyCode(currencyId, currency);
         return {
             'info': transaction,
-            'id': this.safeString(transaction, 'uuid'),
+            'id': this.safeString2(transaction, 'id', 'coinWithdrawalId'),
             'currency': code,
-            'amount': this.safeNumber(transaction, 'amount'),
-            'network': undefined,
-            'address': address,
+            'amount': this.safeNumber(transaction, 'quantity'),
+            'network': this.safeString(transaction, 'network'),
+            'address': this.safeString(transaction, 'address'),
             'addressTo': undefined,
             'addressFrom': undefined,
             'tag': tag,
             'tagTo': undefined,
             'tagFrom': undefined,
-            'status': this.parseTransactionStatus(this.safeStringLower(transaction, 'state')),
+            'status': this.parseTransactionStatus(this.safeString(transaction, 'status')),
             'type': type,
-            'updated': this.parse8601(updatedRaw),
-            'txid': this.safeString(transaction, 'txid'),
+            'updated': undefined,
+            'txid': this.safeString(transaction, 'transactionHash'),
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
             'internal': undefined,
             'comment': undefined,
             'fee': {
                 'currency': code,
-                'cost': this.safeNumber(transaction, 'fee'),
+                'cost': fee,
             },
         };
     }
     parseOrderStatus(status) {
         const statuses = {
-            'wait': 'open',
-            'done': 'closed',
-            'cancel': 'canceled',
+            'pending': 'open',
+            'open': 'open',
+            'filled': 'closed',
+            'canceled': 'canceled',
+            'partiallyFilled': 'open',
+            'partiallyFilledCanceled': 'canceled',
+            'expired': 'canceled',
         };
         return this.safeString(statuses, status, status);
     }
     parseOrder(order, market = undefined) {
         //
-        //     {
-        //         "uuid": "a08f09b1-1718-42e2-9358-f0e5e083d3ee",
-        //         "side": "bid",
-        //         "ord_type": "limit",
-        //         "price": "17417000.0",
-        //         "state": "done",
-        //         "market": "KRW-BTC",
-        //         "created_at": "2018-04-05T14:09:14+09:00",
-        //         "volume": "1.0",
-        //         "remaining_volume": "0.0",
-        //         "reserved_fee": "26125.5",
-        //         "remaining_fee": "25974.0",
-        //         "paid_fee": "151.5",
-        //         "locked": "17341974.0",
-        //         "executed_volume": "1.0",
-        //         "trades_count": 2,
-        //         "trades": [
-        //             {
-        //                 "market": "KRW-BTC",
-        //                 "uuid": "78162304-1a4d-4524-b9e6-c9a9e14d76c3",
-        //                 "price": "101000.0",
-        //                 "volume": "0.77368323",
-        //                 "funds": "78142.00623",
-        //                 "ask_fee": "117.213009345",
-        //                 "bid_fee": "117.213009345",
-        //                 "created_at": "2018-04-05T14:09:15+09:00",
-        //                 "side": "bid",
-        //             },
-        //             {
-        //                 "market": "KRW-BTC",
-        //                 "uuid": "f73da467-c42f-407d-92fa-e10d86450a20",
-        //                 "price": "101000.0",
-        //                 "volume": "0.22631677",
-        //                 "funds": "22857.99377",
-        //                 "ask_fee": "34.286990655", // missing in market orders
-        //                 "bid_fee": "34.286990655", // missing in market orders
-        //                 "created_at": "2018-04-05T14:09:15+09:00", // missing in market orders
-        //                 "side": "bid",
-        //             },
-        //         ],
-        //     }
+        // createOrder
+        // {
+        //     "orderId": 1234
+        // }
         //
-        // fetchOpenOrders, fetchClosedOrders, fetchCanceledOrders
+        // cancelOrder (manually created in ccxt)
+        // {
+        //     "symbol": "btc_krw",
+        //     "orderId": 1234,
+        //     "clientOrderId": "1234-abcd",
+        // }
         //
-        //     {
-        //         "uuid": "637fd66-d019-4d77-bee6-8e0cff28edd9",
-        //         "side": "ask",
-        //         "ord_type": "limit",
-        //         "price": "1.5",
-        //         "state": "wait",
-        //         "market": "SGD-XRP",
-        //         "created_at": "2024-06-05T09:37:10Z",
-        //         "volume": "10",
-        //         "remaining_volume": "10",
-        //         "reserved_fee": "0",
-        //         "remaining_fee": "0",
-        //         "paid_fee": "0",
-        //         "locked": "10",
-        //         "executed_volume": "0",
-        //         "executed_funds": "0",
-        //         "trades_count": 0,
-        //         "time_in_force": "ioc"
-        //     }
+        // fetchOpenOrders
         //
-        const id = this.safeString(order, 'uuid');
-        let side = this.safeString(order, 'side');
-        if (side === 'bid') {
-            side = 'buy';
+        // {
+        //     "orderId": 1234,
+        //     "orderType": "limit",
+        //     "side": "buy",
+        //     "avgPrice": "5000",
+        //     "price": "5000",
+        //     "qty": "10",
+        //     "filledQty": "1",
+        //     "filledAmt": "5000",
+        //     "createdAt": 1700000000000,
+        //     "lastFilledAt": 1700000000000,
+        //     "status": "partiallyFilled"
+        // }
+        //
+        // fetchOrder
+        //
+        // {
+        //     "orderId": 1234,
+        //     "clientOrderId": "20141231-155959-abcdef",
+        //     "symbol": "btc_krw",
+        //     "orderType": "limit",
+        //     "side": "buy",
+        //     "timeInForce": "gtc",
+        //     "avgPrice": "5000",
+        //     "price": "5000",
+        //     "qty": "10",
+        //     "filledQty": "1",
+        //     "filledAmt": "5000",
+        //     "createdAt": 1700000000000,
+        //     "lastFilledAt": 1700000000000,
+        //     "status": "partiallyFilled"
+        // }
+        //
+        const id = this.safeString(order, 'orderId');
+        const clientOrderId = this.safeString(order, 'clientOrderId');
+        const marketId = this.safeString(order, 'symbol');
+        let type = this.safeString(order, 'orderType');
+        const side = this.safeString(order, 'side');
+        const timeInForce = this.safeStringUpper(order, 'timeInForce');
+        const average = this.safeString(order, 'avgPrice');
+        const price = this.safeString(order, 'price');
+        const amount = this.safeString(order, 'qty');
+        const filled = this.safeString(order, 'filledQty');
+        const timestamp = this.safeInteger(order, 'createdAt');
+        const lastTradeTimestamp = this.safeInteger(order, 'lastFilledAt');
+        const status = this.parseOrderStatus(this.safeString(order, 'status'));
+        if (type === 'bbo') {
+            type = 'limit';
         }
-        else {
-            side = 'sell';
-        }
-        let type = this.safeString(order, 'ord_type');
-        const timestamp = this.parse8601(this.safeString(order, 'created_at'));
-        const status = this.parseOrderStatus(this.safeString(order, 'state'));
-        let lastTradeTimestamp = undefined;
-        let price = this.safeString(order, 'price');
-        const amount = this.safeString(order, 'volume');
-        const remaining = this.safeString(order, 'remaining_volume');
-        const filled = this.safeString(order, 'executed_volume');
-        let cost = undefined;
-        if (type === 'price') {
-            type = 'market';
-            cost = price;
-            price = undefined;
-        }
-        let average = undefined;
-        let fee = undefined;
-        let feeCost = this.safeString(order, 'paid_fee');
-        const marketId = this.safeString(order, 'market');
         market = this.safeMarket(marketId, market);
-        let trades = this.safeValue(order, 'trades', []);
-        trades = this.parseTrades(trades, market, undefined, undefined, {
-            'order': id,
-            'type': type,
-        });
-        const numTrades = trades.length;
-        if (numTrades > 0) {
-            // the timestamp in fetchOrder trades is missing
-            lastTradeTimestamp = trades[numTrades - 1]['timestamp'];
-            let getFeesFromTrades = false;
-            if (feeCost === undefined) {
-                getFeesFromTrades = true;
-                feeCost = '0';
-            }
-            cost = '0';
-            for (let i = 0; i < numTrades; i++) {
-                const trade = trades[i];
-                cost = Precise.stringAdd(cost, this.safeString(trade, 'cost'));
-                if (getFeesFromTrades) {
-                    const tradeFee = this.safeValue(trades[i], 'fee', {});
-                    const tradeFeeCost = this.safeString(tradeFee, 'cost');
-                    if (tradeFeeCost !== undefined) {
-                        feeCost = Precise.stringAdd(feeCost, tradeFeeCost);
-                    }
-                }
-            }
-            average = Precise.stringDiv(cost, filled);
-        }
-        if (feeCost !== undefined) {
-            fee = {
-                'currency': market['quote'],
-                'cost': feeCost,
-            };
-        }
         return this.safeOrder({
             'info': order,
             'id': id,
-            'clientOrderId': undefined,
+            'clientOrderId': clientOrderId,
             'timestamp': timestamp,
             'datetime': this.iso8601(timestamp),
             'lastTradeTimestamp': lastTradeTimestamp,
             'symbol': market['symbol'],
             'type': type,
-            'timeInForce': this.safeStringUpper(order, 'time_in_force'),
+            'timeInForce': timeInForce,
             'postOnly': undefined,
             'side': side,
             'price': price,
             'stopPrice': undefined,
             'triggerPrice': undefined,
-            'cost': this.parseNumber(cost),
-            'average': this.parseNumber(average),
+            'cost': undefined,
+            'average': average,
             'amount': amount,
             'filled': filled,
-            'remaining': remaining,
+            'remaining': undefined,
             'status': status,
-            'fee': fee,
-            'trades': trades,
+            'fee': undefined,
+            'trades': undefined,
         });
     }
     /**
      * @method
      * @name korbit#fetchOpenOrders
      * @description fetch all unfilled currently open orders
-     * @see https://global-docs.korbit.com/reference/open-order
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_openOrders
      * @param {string} symbol unified market symbol
      * @param {int} [since] the earliest time in ms to fetch open orders for
      * @param {int} [limit] the maximum number of open order structures to retrieve
@@ -1589,217 +1528,106 @@ export default class korbit extends Exchange {
      * @param {string} [params.state] default is 'wait', set to 'watch' for stop limit orders
      * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
      */
-    async fetchOpenOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
+    async fetchOpenOrders(symbol, since = undefined, limit = undefined, params = {}) {
         await this.loadMarkets();
-        const request = {};
-        let market = undefined;
-        if (symbol !== undefined) {
-            market = this.market(symbol);
-            request['market'] = market['id'];
-        }
-        if (limit !== undefined) {
-            request['limit'] = limit;
-        }
-        const response = await this.privateGetOrdersOpen(this.extend(request, params));
-        //
-        //     [
-        //         {
-        //             "uuid": "637fd66-d019-4d77-bee6-8e0cff28edd9",
-        //             "side": "ask",
-        //             "ord_type": "limit",
-        //             "price": "1.5",
-        //             "state": "wait",
-        //             "market": "SGD-XRP",
-        //             "created_at": "2024-06-05T09:37:10Z",
-        //             "volume": "10",
-        //             "remaining_volume": "10",
-        //             "reserved_fee": "0",
-        //             "remaining_fee": "0",
-        //             "paid_fee": "0",
-        //             "locked": "10",
-        //             "executed_volume": "0",
-        //             "executed_funds": "0",
-        //             "trades_count": 0
-        //         }
-        //     ]
-        //
-        return this.parseOrders(response, market, since, limit);
-    }
-    /**
-     * @method
-     * @name korbit#fetchClosedOrders
-     * @description fetches information on multiple closed orders made by the user
-     * @see https://global-docs.korbit.com/reference/closed-order
-     * @param {string} symbol unified market symbol of the market orders were made in
-     * @param {int} [since] the earliest time in ms to fetch orders for
-     * @param {int} [limit] the maximum number of order structures to retrieve
-     * @param {object} [params] extra parameters specific to the exchange API endpoint
-     * @param {int} [params.until] timestamp in ms of the latest order
-     * @returns {Order[]} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-     */
-    async fetchClosedOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        await this.loadMarkets();
-        let request = {
-            'state': 'done',
+        const market = this.market(symbol);
+        const request = {
+            'symbol': market['id'],
         };
-        let market = undefined;
-        if (symbol !== undefined) {
-            market = this.market(symbol);
-            request['market'] = market['id'];
-        }
-        if (since !== undefined) {
-            request['start_time'] = since;
-        }
         if (limit !== undefined) {
             request['limit'] = limit;
         }
-        [request, params] = this.handleUntilOption('end_time', request, params);
-        const response = await this.privateGetOrdersClosed(this.extend(request, params));
+        const response = await this.privateGetOpenOrders(this.extend(request, params));
         //
-        //     [
-        //         {
-        //             "uuid": "637fd66-d019-4d77-bee6-8e0cff28edd9",
-        //             "side": "ask",
-        //             "ord_type": "limit",
-        //             "price": "1.5",
-        //             "state": "done",
-        //             "market": "SGD-XRP",
-        //             "created_at": "2024-06-05T09:37:10Z",
-        //             "volume": "10",
-        //             "remaining_volume": "10",
-        //             "reserved_fee": "0",
-        //             "remaining_fee": "0",
-        //             "paid_fee": "0",
-        //             "locked": "10",
-        //             "executed_volume": "0",
-        //             "executed_funds": "0",
-        //             "trades_count": 0,
-        //             "time_in_force": "ioc"
-        //         }
-        //     ]
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "orderId": 1234,
+        //         "orderType": "limit",
+        //         "side": "buy",
+        //         "avgPrice": "5000",
+        //         "price": "5000",
+        //         "qty": "10",
+        //         "filledQty": "1",
+        //         "filledAmt": "5000",
+        //         "createdAt": 1700000000000,
+        //         "lastFilledAt": 1700000000000,
+        //         "status": "partiallyFilled"
+        //       },
+        //       {
+        //         "orderId": 1235,
+        //         "orderType": "limit",
+        //         "side": "sell",
+        //         "price": "5000",
+        //         "qty": "10",
+        //         "filledQty": "0",
+        //         "filledAmt": "0",
+        //         "createdAt": 1700000000000,
+        //         "status": "open"
+        //       },
+        //     ],
+        // }
         //
-        return this.parseOrders(response, market, since, limit);
-    }
-    /**
-     * @method
-     * @name korbit#fetchCanceledOrders
-     * @description fetches information on multiple canceled orders made by the user
-     * @see https://global-docs.korbit.com/reference/closed-order
-     * @param {string} symbol unified market symbol of the market orders were made in
-     * @param {int} [since] timestamp in ms of the earliest order, default is undefined
-     * @param {int} [limit] max number of orders to return, default is undefined
-     * @param {object} [params] extra parameters specific to the exchange API endpoint
-     * @param {int} [params.until] timestamp in ms of the latest order
-     * @returns {object} a list of [order structures]{@link https://docs.ccxt.com/#/?id=order-structure}
-     */
-    async fetchCanceledOrders(symbol = undefined, since = undefined, limit = undefined, params = {}) {
-        await this.loadMarkets();
-        let request = {
-            'state': 'cancel',
-        };
-        let market = undefined;
-        if (symbol !== undefined) {
-            market = this.market(symbol);
-            request['market'] = market['id'];
-        }
-        if (since !== undefined) {
-            request['start_time'] = since;
-        }
-        if (limit !== undefined) {
-            request['limit'] = limit;
-        }
-        [request, params] = this.handleUntilOption('end_time', request, params);
-        const response = await this.privateGetOrdersClosed(this.extend(request, params));
-        //
-        //     [
-        //         {
-        //             "uuid": "637fd66-d019-4d77-bee6-8e0cff28edd9",
-        //             "side": "ask",
-        //             "ord_type": "limit",
-        //             "price": "1.5",
-        //             "state": "cancel",
-        //             "market": "SGD-XRP",
-        //             "created_at": "2024-06-05T09:37:10Z",
-        //             "volume": "10",
-        //             "remaining_volume": "10",
-        //             "reserved_fee": "0",
-        //             "remaining_fee": "0",
-        //             "paid_fee": "0",
-        //             "locked": "10",
-        //             "executed_volume": "0",
-        //             "executed_funds": "0",
-        //             "trades_count": 0,
-        //             "time_in_force": "ioc"
-        //         }
-        //     ]
-        //
-        return this.parseOrders(response, market, since, limit);
+        const data = this.safeValue(response, 'data', []);
+        return this.parseOrders(data, market, since, limit);
     }
     /**
      * @method
      * @name korbit#fetchOrder
-     * @see https://docs.korbit.com/reference/%EA%B0%9C%EB%B3%84-%EC%A3%BC%EB%AC%B8-%EC%A1%B0%ED%9A%8C
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_orders
      * @description fetches information on an order made by the user
      * @param {string} id order id
-     * @param {string} symbol not used by korbit fetchOrder
+     * @param {string} symbol unified market symbol
      * @param {object} [params] extra parameters specific to the exchange API endpoint
      * @returns {object} An [order structure]{@link https://docs.ccxt.com/#/?id=order-structure}
      */
-    async fetchOrder(id, symbol = undefined, params = {}) {
+    async fetchOrder(id = undefined, symbol, params = {}) {
         await this.loadMarkets();
+        const market = this.market(symbol);
         const request = {
-            'uuid': id,
+            'symbol': market['id'],
         };
-        const response = await this.privateGetOrder(this.extend(request, params));
+        if (id !== undefined) {
+            request['orderId'] = id;
+        }
+        const clientOrderId = this.safeString(params, 'clientOrderId');
+        if (clientOrderId !== undefined) {
+            request['clientOrderId'] = clientOrderId;
+        }
+        if (id === undefined && clientOrderId === undefined) {
+            throw new BadRequest(this.id + ' fetchOrder() requires id or clientOrderId argument');
+        }
+        params = this.omit(params, 'clientOrderId');
+        const response = await this.privateGetOrders(this.extend(request, params));
         //
-        //     {
-        //         "uuid": "a08f09b1-1718-42e2-9358-f0e5e083d3ee",
-        //         "side": "bid",
-        //         "ord_type": "limit",
-        //         "price": "17417000.0",
-        //         "state": "done",
-        //         "market": "KRW-BTC",
-        //         "created_at": "2018-04-05T14:09:14+09:00",
-        //         "volume": "1.0",
-        //         "remaining_volume": "0.0",
-        //         "reserved_fee": "26125.5",
-        //         "remaining_fee": "25974.0",
-        //         "paid_fee": "151.5",
-        //         "locked": "17341974.0",
-        //         "executed_volume": "1.0",
-        //         "trades_count": 2,
-        //         "trades": [
-        //             {
-        //                 "market": "KRW-BTC",
-        //                 "uuid": "78162304-1a4d-4524-b9e6-c9a9e14d76c3",
-        //                 "price": "101000.0",
-        //                 "volume": "0.77368323",
-        //                 "funds": "78142.00623",
-        //                 "ask_fee": "117.213009345",
-        //                 "bid_fee": "117.213009345",
-        //                 "created_at": "2018-04-05T14:09:15+09:00",
-        //                 "side": "bid"
-        //             },
-        //             {
-        //                 "market": "KRW-BTC",
-        //                 "uuid": "f73da467-c42f-407d-92fa-e10d86450a20",
-        //                 "price": "101000.0",
-        //                 "volume": "0.22631677",
-        //                 "funds": "22857.99377",
-        //                 "ask_fee": "34.286990655",
-        //                 "bid_fee": "34.286990655",
-        //                 "created_at": "2018-04-05T14:09:15+09:00",
-        //                 "side": "bid"
-        //             }
-        //         ]
+        // {
+        //     "success": true,
+        //     "data": {
+        //       "orderId": 1234,
+        //       "clientOrderId": "20141231-155959-abcdef",
+        //       "symbol": "btc_krw",
+        //       "orderType": "limit",
+        //       "side": "buy",
+        //       "timeInForce": "gtc",
+        //       "avgPrice": "5000",
+        //       "price": "5000",
+        //       "qty": "10",
+        //       "filledQty": "1",
+        //       "filledAmt": "5000",
+        //       "createdAt": 1700000000000,
+        //       "lastFilledAt": 1700000000000,
+        //       "status": "partiallyFilled"
         //     }
+        // }
         //
-        return this.parseOrder(response);
+        const data = this.safeValue(response, 'data', {});
+        return this.parseOrder(data);
     }
     /**
      * @method
      * @name korbit#fetchDepositAddresses
-     * @see https://docs.korbit.com/reference/%EC%A0%84%EC%B2%B4-%EC%9E%85%EA%B8%88-%EC%A3%BC%EC%86%8C-%EC%A1%B0%ED%9A%8C
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_coin_depositAddresses
      * @description fetch deposit addresses for multiple currencies and chain types
      * @param {string[]|undefined} codes list of unified currency codes, default is undefined
      * @param {object} [params] extra parameters specific to the exchange API endpoint
@@ -1807,42 +1635,40 @@ export default class korbit extends Exchange {
      */
     async fetchDepositAddresses(codes = undefined, params = {}) {
         await this.loadMarkets();
-        const response = await this.privateGetDepositsCoinAddresses(params);
+        const response = await this.privateGetCoinDepositAddresses(params);
         //
-        //     [
-        //         {
-        //             "currency": "BTC",
-        //             "deposit_address": "3EusRwybuZUhVDeHL7gh3HSLmbhLcy7NqD",
-        //             "secondary_address": null
-        //         },
-        //         {
-        //             "currency": "ETH",
-        //             "deposit_address": "0x0d73e0a482b8cf568976d2e8688f4a899d29301c",
-        //             "secondary_address": null
-        //         },
-        //         {
-        //             "currency": "XRP",
-        //             "deposit_address": "rN9qNpgnBaZwqCg8CvUZRPqCcPPY7wfWep",
-        //             "secondary_address": "3057887915"
-        //         }
+        // {
+        //     "success": true,
+        //     "data": [
+        //       {
+        //         "currency": "btc",
+        //         "network": "BTC",
+        //         "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+        //       },
+        //       {
+        //         "currency": "xrp",
+        //         "network": "XRP",
+        //         "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+        //         "secondaryAddress": "1234",
+        //       }
         //     ]
+        // }
         //
         return this.parseDepositAddresses(response, codes);
     }
     parseDepositAddress(depositAddress, currency = undefined) {
         //
-        //    {
-        //        currency: 'XRP',
-        //        net_type: 'XRP',
-        //        deposit_address: 'raQwCVAJVqjrVm1Nj5SFRcX8i22BhdC9WA',
-        //        secondary_address: '167029435'
-        //    }
+        // {
+        //     "currency": "btc",
+        //     "network": "BTC",
+        //     "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+        // }
         //
-        const address = this.safeString(depositAddress, 'deposit_address');
-        const tag = this.safeString(depositAddress, 'secondary_address');
+        const address = this.safeString(depositAddress, 'address');
+        const tag = this.safeString(depositAddress, 'secondaryAddress');
         const currencyId = this.safeString(depositAddress, 'currency');
         const code = this.safeCurrencyCode(currencyId);
-        const networkId = this.safeString(depositAddress, 'net_type');
+        const networkId = this.safeString(depositAddress, 'network');
         this.checkAddress(address);
         return {
             'info': depositAddress,
@@ -1855,7 +1681,7 @@ export default class korbit extends Exchange {
     /**
      * @method
      * @name korbit#fetchDepositAddress
-     * @see https://docs.korbit.com/reference/%EC%A0%84%EC%B2%B4-%EC%9E%85%EA%B8%88-%EC%A3%BC%EC%86%8C-%EC%A1%B0%ED%9A%8C
+     * @see https://docs.korbit.co.kr/#REST-get-_v2_coin_depositAddress
      * @description fetch the deposit address for a currency associated with this account
      * @param {string} code unified currency code
      * @param {object} [params] extra parameters specific to the exchange API endpoint
@@ -1865,29 +1691,32 @@ export default class korbit extends Exchange {
     async fetchDepositAddress(code, params = {}) {
         await this.loadMarkets();
         const currency = this.currency(code);
+        const request = {
+            'currency': currency['id'],
+        };
         let networkCode = undefined;
         [networkCode, params] = this.handleNetworkCodeAndParams(params);
-        if (networkCode === undefined) {
-            throw new ArgumentsRequired(this.id + ' fetchDepositAddress requires params["network"]');
+        if (networkCode !== undefined) {
+            request['network'] = this.networkCodeToId(networkCode, currency['code']);
         }
-        const response = await this.privateGetDepositsCoinAddress(this.extend({
-            'currency': currency['id'],
-            'net_type': this.networkCodeToId(networkCode, currency['code']),
-        }, params));
+        const response = await this.privateGetCoinDepositAddress(this.extend(request, params));
         //
-        //    {
-        //        currency: 'XRP',
-        //        net_type: 'XRP',
-        //        deposit_address: 'raQwCVAJVqjrVm1Nj5SFRcX8i22BhdC9WA',
-        //        secondary_address: '167029435'
-        //    }
+        // {
+        //     "success": true,
+        //     "data": {
+        //       "currency": "btc",
+        //       "network": "BTC",
+        //       "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+        //     }
+        // }
         //
-        return this.parseDepositAddress(response);
+        const data = this.safeValue(response, 'data', {});
+        return this.parseDepositAddress(data);
     }
     /**
      * @method
      * @name korbit#createDepositAddress
-     * @see https://docs.korbit.com/reference/%EC%9E%85%EA%B8%88-%EC%A3%BC%EC%86%8C-%EC%83%9D%EC%84%B1-%EC%9A%94%EC%B2%AD
+     * @see https://docs.korbit.co.kr/#REST-post-_v2_coin_depositAddress
      * @description create a currency deposit address
      * @param {string} code unified currency code of the currency for the deposit address
      * @param {object} [params] extra parameters specific to the exchange API endpoint
@@ -1900,33 +1729,25 @@ export default class korbit extends Exchange {
             'currency': currency['id'],
         };
         // https://github.com/ccxt/ccxt/issues/6452
-        const response = await this.privatePostDepositsGenerateCoinAddress(this.extend(request, params));
+        const response = await this.privatePostCoinDepositAddress(this.extend(request, params));
         //
-        // https://docs.korbit.com/v1.0/reference#%EC%9E%85%EA%B8%88-%EC%A3%BC%EC%86%8C-%EC%83%9D%EC%84%B1-%EC%9A%94%EC%B2%AD
-        // can be any of the two responses:
-        //
-        //     {
-        //         "success" : true,
-        //         "message" : "Creating BTC deposit address."
+        // {
+        //     "success": true,
+        //     "data": {
+        //       "currency": "btc",
+        //       "network": "BTC",
+        //       "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
         //     }
+        // }
         //
-        //     {
-        //         "currency": "BTC",
-        //         "deposit_address": "3EusRwybuZUhVDeHL7gh3HSLmbhLcy7NqD",
-        //         "secondary_address": null
-        //     }
-        //
-        const message = this.safeString(response, 'message');
-        if (message !== undefined) {
-            throw new AddressPending(this.id + ' is generating ' + code + ' deposit address, call fetchDepositAddress or createDepositAddress one more time later to retrieve the generated address');
-        }
-        return this.parseDepositAddress(response);
+        const data = this.safeValue(response, 'data', {});
+        return this.parseDepositAddress(data);
     }
     /**
      * @method
      * @name korbit#withdraw
-     * @see https://docs.korbit.com/reference/디지털자산-출금하기
-     * @see https://docs.korbit.com/reference/%EC%9B%90%ED%99%94-%EC%B6%9C%EA%B8%88%ED%95%98%EA%B8%B0
+     * @see https://docs.korbit.co.kr/#REST-post-_v2_coin_withdrawal
+     * @see https://docs.korbit.co.kr/#REST-post-_v2_krw_sendKrwWithdrawalPush
      * @description make a withdrawal
      * @param {string} code unified currency code
      * @param {float} amount the amount to withdraw
@@ -1945,39 +1766,34 @@ export default class korbit extends Exchange {
         let response = undefined;
         if (code !== 'KRW') {
             this.checkAddress(address);
-            // 2023-05-23 Change to required parameters for digital assets
-            const network = this.safeStringUpper2(params, 'network', 'net_type');
-            if (network === undefined) {
-                throw new ArgumentsRequired(this.id + ' withdraw() requires a network argument');
+            let networkCode = undefined;
+            [networkCode, params] = this.handleNetworkCodeAndParams(params);
+            if (networkCode !== undefined) {
+                request['network'] = this.networkCodeToId(networkCode, currency['code']);
             }
-            params = this.omit(params, ['network']);
-            request['net_type'] = network;
             request['currency'] = currency['id'];
             request['address'] = address;
             if (tag !== undefined) {
-                request['secondary_address'] = tag;
+                request['secondaryAddress'] = tag;
             }
-            params = this.omit(params, 'network');
-            response = await this.privatePostWithdrawsCoin(this.extend(request, params));
+            response = await this.privatePostCoinWithdrawal(this.extend(request, params));
         }
         else {
-            response = await this.privatePostWithdrawsKrw(this.extend(request, params));
+            response = await this.privatePostKrwSendKrwWithdrawalPush(this.extend(request, params));
         }
-        //
-        //     {
-        //         "type": "withdraw",
-        //         "uuid": "9f432943-54e0-40b7-825f-b6fec8b42b79",
-        //         "currency": "BTC",
-        //         "txid": "ebe6937b-130e-4066-8ac6-4b0e67f28adc",
-        //         "state": "processing",
-        //         "created_at": "2018-04-13T11:24:01+09:00",
-        //         "done_at": null,
-        //         "amount": "0.01",
-        //         "fee": "0.0",
-        //         "krw_amount": "80420.0"
+        // Coin
+        // {
+        //     "success": true,
+        //     "data": {
+        //       "status": "pending",
+        //       "coinWithdrawalId": 1234
         //     }
+        // }
+        // KRW
+        // {"success":true}
         //
-        return this.parseTransaction(response);
+        const data = this.safeValue(response, 'data', undefined);
+        return this.parseTransaction(data);
     }
     nonce() {
         return this.milliseconds();
@@ -1988,35 +1804,22 @@ export default class korbit extends Exchange {
         });
         url += '/' + this.version + '/' + this.implodeParams(path, params);
         const query = this.omit(params, this.extractParams(path));
+        if (api === 'private') {
+            this.checkRequiredCredentials();
+            headers = {};
+            query['timestamp'] = this.nonce();
+            const signature = this.hmac(this.urlencode(query), this.encode(this.secret), sha256);
+            query['signature'] = signature
+            headers['X-KAPI-KEY'] = this.apiKey;
+            if ((method !== 'GET') && (method !== 'DELETE')) {
+                body = this.urlencode(query);
+                headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            }
+        }
         if (method !== 'POST') {
             if (Object.keys(query).length) {
                 url += '?' + this.urlencode(query);
             }
-        }
-        if (api === 'private') {
-            this.checkRequiredCredentials();
-            headers = {};
-            const nonce = this.uuid();
-            const request = {
-                'access_key': this.apiKey,
-                'nonce': nonce,
-            };
-            const hasQuery = Object.keys(query).length;
-            let auth = undefined;
-            if ((method !== 'GET') && (method !== 'DELETE')) {
-                body = this.json(params);
-                headers['Content-Type'] = 'application/json';
-            }
-            if (hasQuery) {
-                auth = this.rawencode(query);
-            }
-            if (auth !== undefined) {
-                const hash = this.hash(this.encode(auth), sha512);
-                request['query_hash'] = hash;
-                request['query_hash_alg'] = 'SHA512';
-            }
-            const token = jwt(request, this.encode(this.secret), sha256);
-            headers['Authorization'] = 'Bearer ' + token;
         }
         return { 'url': url, 'method': method, 'body': body, 'headers': headers };
     }
@@ -2025,27 +1828,23 @@ export default class korbit extends Exchange {
             return undefined; // fallback to default error handler
         }
         //
-        //   { 'error': { 'message': "Missing request parameter error. Check the required parameters!", 'name': 400 } },
-        //   { 'error': { 'message': "side is missing, side does not have a valid value", 'name': "validation_error" } },
-        //   { 'error': { 'message': "개인정보 제 3자 제공 동의가 필요합니다.", 'name': "thirdparty_agreement_required" } },
-        //   { 'error': { 'message': "권한이 부족합니다.", 'name': "out_of_scope" } },
-        //   { 'error': { 'message': "주문을 찾지 못했습니다.", 'name': "order_not_found" } },
-        //   { 'error': { 'message': "주문가능한 금액(ETH)이 부족합니다.", 'name': "insufficient_funds_ask" } },
-        //   { 'error': { 'message': "주문가능한 금액(BTC)이 부족합니다.", 'name': "insufficient_funds_bid" } },
-        //   { 'error': { 'message': "잘못된 엑세스 키입니다.", 'name': "invalid_access_key" } },
-        //   { 'error': { 'message': "Jwt 토큰 검증에 실패했습니다.", 'name': "jwt_verification" } }
+        //   {"success":false,"error":{"code":404,"message":"NOT_FOUND"}}
         //
+        const success = this.safeValue(response, 'success');
         const error = this.safeValue(response, 'error');
-        if (error !== undefined) {
-            const message = this.safeString(error, 'message');
-            const name = this.safeString(error, 'name');
+        if (success !== true) {
             const feedback = this.id + ' ' + body;
-            this.throwExactlyMatchedException(this.exceptions['exact'], message, feedback);
-            this.throwExactlyMatchedException(this.exceptions['exact'], name, feedback);
-            this.throwBroadlyMatchedException(this.exceptions['broad'], message, feedback);
-            this.throwBroadlyMatchedException(this.exceptions['broad'], name, feedback);
+            if (error !== undefined) {
+                const code = this.safeString(error, 'code');
+                const message = this.safeString(error, 'message');
+                this.throwExactlyMatchedException(this.exceptions['exact'], code, feedback);
+                this.throwExactlyMatchedException(this.exceptions['exact'], message, feedback);
+                this.throwBroadlyMatchedException(this.exceptions['broad'], message, feedback);
+                this.throwBroadlyMatchedException(this.exceptions['broad'], code, feedback);
+            }
             throw new ExchangeError(feedback); // unknown message
         }
+        
         return undefined;
     }
 }
