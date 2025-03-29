@@ -1,7 +1,7 @@
-import korbitRest from '../korbit.js';
+import korbitvipRest from '../korbitvip.js';
 import type { Int, Str, Order, OrderBook, Trade, Ticker, Balances, Tickers, Strings } from '../base/types.js';
 import Client from '../base/ws/Client.js';
-export default class korbit extends korbitRest {
+export default class korbitvip extends korbitvipRest {
     describe(): any;
     /**
      * @method

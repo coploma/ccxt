@@ -5,12 +5,12 @@
 // EDIT THE CORRESPONDENT .ts FILE INSTEAD
 
 //  ---------------------------------------------------------------------------
-import korbitRest from '../korbit.js';
+import korbitvipRest from '../korbitvip.js';
 import { ArrayCache, ArrayCacheBySymbolById } from '../base/ws/Cache.js';
 import { sha256 } from '../static_dependencies/noble-hashes/sha256.js';
 import { jwt } from '../base/functions/rsa.js';
 //  ---------------------------------------------------------------------------
-export default class korbit extends korbitRest {
+export default class korbitvip extends korbitvipRest {
     describe() {
         return this.deepExtend(super.describe(), {
             'has': {

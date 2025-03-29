@@ -1226,7 +1226,7 @@ export default class korbit extends Exchange {
             throw new BadRequest(this.id + ' cancelOrder() requires id or clientOrderId argument');
         }
         params = this.omit(params, 'clientOrderId');
-        await this.privateCancelOrders(this.extend(request, params));
+        await this.privateDeleteOrders(this.extend(request, params));
         //
         // {
         //     "success": true
