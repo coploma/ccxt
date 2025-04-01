@@ -61,7 +61,7 @@ export default class korbitvip extends korbit {
                     'tierBased': false,
                     'percentage': true,
                     'maker': this.parseNumber('0'),
-                    'taker': this.parseNumber('0.0005'),
+                    'taker': this.parseNumber('0.0003'),
                 },
                 'funding': {
                     'tierBased': false,

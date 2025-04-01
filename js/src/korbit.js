@@ -6,7 +6,7 @@
 
 //  ---------------------------------------------------------------------------
 import Exchange from './abstract/korbit.js';
-import { ExchangeError, AccountSuspended, BadRequest, AuthenticationError, InvalidOrder, InsufficientFunds, OrderNotFound, PermissionDenied, AddressPending, ArgumentsRequired, BadSymbol, InvalidAddress, DuplicateOrderId } from './base/errors.js';
+import { ExchangeError, AccountSuspended, BadRequest, AuthenticationError, InvalidOrder, InsufficientFunds, OrderNotFound, OrderNotCached, PermissionDenied, AddressPending, ArgumentsRequired, BadSymbol, InvalidAddress, DuplicateOrderId } from './base/errors.js';
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha512 } from './static_dependencies/noble-hashes/sha512.js';
@@ -150,7 +150,7 @@ export default class korbit extends Exchange {
                     'tierBased': false,
                     'percentage': true,
                     'maker': this.parseNumber('0'),
-                    'taker': this.parseNumber('0.2'),
+                    'taker': this.parseNumber('0.002'),
                 },
                 'funding': {
                     'tierBased': false,
@@ -183,7 +183,7 @@ export default class korbit extends Exchange {
                     'ORDER_ALREADY_CANCELED': OrderNotFound,
                     'ORDER_ALREADY_FILLED': OrderNotFound,
                     'ORDER_ALREADY_EXPIRED': OrderNotFound,
-                    'TRY_AGAIN': OrderNotFound,
+                    'TRY_AGAIN': OrderNotCached,
                     'INVALID_CURRENCY': BadSymbol,
                     'WITHDRAWAL_SUSPENDED': InvalidAddress,
                     'UNREGISTERED_WITHDRAWAL_ADDRESS': InvalidAddress,

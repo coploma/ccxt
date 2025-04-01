@@ -6,7 +6,7 @@
 
 //  ---------------------------------------------------------------------------
 import Exchange from './abstract/coinone.js';
-import { BadSymbol, BadRequest, ExchangeError, ArgumentsRequired, OrderNotFound, OnMaintenance } from './base/errors.js';
+import { BadSymbol, BadRequest, ExchangeError, ArgumentsRequired, OrderNotFound, DuplicateOrderId, OnMaintenance, InvalidOrder } from './base/errors.js';
 import { Precise } from './base/Precise.js';
 import { TICK_SIZE } from './base/functions/number.js';
 import { sha512 } from './static_dependencies/noble-hashes/sha512.js';
@@ -171,6 +171,8 @@ export default class coinone extends Exchange {
                 '107': BadRequest,
                 '108': BadSymbol,
                 '405': OnMaintenance,
+                '116': OrderNotFound,
+                '118': DuplicateOrderId,
             },
             'commonCurrencies': {
                 'SOC': 'Soda Coin',

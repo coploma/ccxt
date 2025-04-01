@@ -25,7 +25,7 @@ export default class korbitvip extends korbitvipRest {
             },
             'urls': {
                 'api': {
-                    'ws': 'wss://ws-{hostname}/v2',
+                    'ws': 'wss://ws-api.korbit.co.kr/v2',
                 },
             },
             'options': {
