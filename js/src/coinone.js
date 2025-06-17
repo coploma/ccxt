@@ -876,7 +876,7 @@ export default class coinone extends Exchange {
             'PARTIALLY_FILLED': 'open',
             'PARTIALLY_CANCELED': 'open',
             'FILLED': 'closed',
-            'CANCELED': 'closed',
+            'CANCELED': 'canceled',
             'NOT_TRIGGERED': 'open',
             'NOT_TRIGGERED_PARTIALLY_CANCELED': 'open',
             'NOT_TRIGGERED_CANCELED': 'canceled',
@@ -972,6 +972,9 @@ export default class coinone extends Exchange {
         if ((base !== undefined) && (quote !== undefined)) {
             symbol = base + '/' + quote;
             market = this.safeMarket(symbol, market, '/');
+        }
+        else {
+            symbol = market['symbol'];
         }
         const timestamp = this.safeNumber(order, 'ordered_at');
         const lastUpdateTimestamp = this.safeNumber(order, 'updated_at');

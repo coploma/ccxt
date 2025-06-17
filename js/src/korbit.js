@@ -1196,7 +1196,7 @@ export default class korbit extends Exchange {
         // }
         //
         const data = this.safeValue(response, 'data', {});
-        return this.parseOrder(data);
+        return this.parseOrder(data, market);
     }
     /**
      * @method
@@ -1232,7 +1232,7 @@ export default class korbit extends Exchange {
         //     "success": true
         // }
         //
-        return this.parseOrder(request);
+        return this.parseOrder(request, market);
     }
     /**
      * @method
@@ -1622,7 +1622,7 @@ export default class korbit extends Exchange {
         // }
         //
         const data = this.safeValue(response, 'data', {});
-        return this.parseOrder(data);
+        return this.parseOrder(data, market);
     }
     /**
      * @method
